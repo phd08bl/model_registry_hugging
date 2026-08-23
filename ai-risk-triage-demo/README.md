@@ -115,7 +115,8 @@ decision; this repository does not choose one on its behalf.
 From the repository root:
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.11 -m venv .venv or python -m venv .venv            
+ .venv\Scripts\activate        
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 $env:LLM_MODE = "mock"
