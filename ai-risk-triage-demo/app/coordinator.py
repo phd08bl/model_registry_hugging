@@ -16,7 +16,7 @@ from app.agent.tools import ToolRegistry
 from app.agent.verifier import ResultVerifier
 from app.config import Settings
 from app.database import CaseRepository
-from app.graph import PROMPT_VERSION, WORKFLOW_VERSION, TriageGraphFactory
+from app.graph import TriageGraphFactory
 from app.llm.base import LLMClient
 from app.schemas import (
     CASE_COMPLETION_CRITERIA,
@@ -27,6 +27,7 @@ from app.schemas import (
     HumanDecision,
     Questionnaire,
 )
+from app.versions import PROMPT_VERSION, QUESTIONNAIRE_VERSION, RULESET_VERSION, WORKFLOW_VERSION
 
 CASE_OBJECTIVE = CaseObjective(
     statement=CASE_OBJECTIVE_STATEMENT,
@@ -160,8 +161,8 @@ class CaseCoordinator:
             "current_authoritative_results": {},
             "material_change_requires_airo_review": False,
             "decision_authority": "AI Risk Oversight (AIRO)",
-            "questionnaire_version": "demo-questionnaire-1.0",
-            "rule_version": "demo-rules-1.0",
+            "questionnaire_version": QUESTIONNAIRE_VERSION,
+            "rule_version": RULESET_VERSION,
             "workflow_version": WORKFLOW_VERSION,
             "prompt_version": PROMPT_VERSION,
             "publication_status": "NOT_STARTED",
@@ -224,14 +225,16 @@ class CaseCoordinator:
             except Exception as exc:
                 state = existing["state"]
                 state["status"] = "ERROR"
-                state["error"] = str(exc)
+                state["error"] = (
+                    "Workflow execution failed closed. Review protected service telemetry."
+                )
                 self.repository.save(case_id, state, None)
                 self.repository.add_audit(
                     case_id,
                     "system",
                     "AIRO Case Coordinator",
                     "GRAPH_ERROR",
-                    {"error": str(exc)},
+                    {"error_type": type(exc).__name__, "details_exposed": False},
                 )
                 raise
 
@@ -268,7 +271,7 @@ class CaseCoordinator:
                 normalised = validated.model_dump()
                 decision.answer_updates = {key: normalised[key] for key in decision.answer_updates}
             except ValidationError as exc:
-                raise ValueError(f"Questionnaire updates are invalid: {exc}") from exc
+                raise ValueError("Questionnaire updates are invalid.") from exc
         rationale_required = {
             "proceed_with_gap",
             "return_for_evidence",

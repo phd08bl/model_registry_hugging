@@ -21,6 +21,13 @@ class OllamaLLMClient(StructuredLLMClient):
         self.model = model
         self.timeout_seconds = timeout_seconds
 
+    @staticmethod
+    def _error_summary(exc: Exception) -> str:
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None)
+        status = f" (HTTP {status_code})" if status_code is not None else ""
+        return f"{type(exc).__name__}{status}"
+
     def health(self) -> tuple[bool, str]:
         try:
             response = httpx.get(f"{self.base_url}/api/tags", timeout=3.0)
@@ -30,7 +37,7 @@ class OllamaLLMClient(StructuredLLMClient):
                 return True, f"Ollama is available and model '{self.model}' is installed."
             return False, f"Ollama is available but model '{self.model}' is not installed."
         except (httpx.HTTPError, KeyError, ValueError) as exc:  # pragma: no cover
-            return False, f"Ollama is unavailable: {exc}"
+            return False, f"Ollama is unavailable: {self._error_summary(exc)}"
 
     def _structured(self, system: str, user: str, response_model: type[T]) -> T:
         schema = response_model.model_json_schema()
@@ -58,7 +65,9 @@ class OllamaLLMClient(StructuredLLMClient):
             content = response.json()["message"]["content"]
             return response_model.model_validate_json(content)
         except (httpx.HTTPError, KeyError, ValueError) as exc:
-            raise LLMRuntimeError(f"Ollama structured-output call failed: {exc}") from exc
+            raise LLMRuntimeError(
+                f"Ollama structured-output call failed: {self._error_summary(exc)}"
+            ) from exc
 
     def runtime_metadata(self) -> dict[str, Any]:
         return {

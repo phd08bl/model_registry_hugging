@@ -16,8 +16,9 @@ from app.schemas import (
     CaseObjective,
     ToolIdentifier,
 )
+from app.versions import AGENT_POLICY_VERSION
 
-DEMO_POLICY_VERSION = "illustrative-demo-agent-policy-1.0"
+DEMO_POLICY_VERSION = AGENT_POLICY_VERSION
 PROFILE_RANK: dict[str, int] = {
     "human_governed": 0,
     "conditional_review": 1,
@@ -31,13 +32,11 @@ PROFILE_RANK: dict[str, int] = {
 DEMO_PATTERN_MAXIMUMS: dict[str, AutonomyProfile] = {
     "human_evidence_conflict": "human_governed",
     "human_full_review": "human_governed",
-    "external_supplier_gap": "human_governed",
     "agentic_ai_autonomy": "human_governed",
     "conditional_clean_final": "conditional_review",
     "conditional_exception": "conditional_review",
     "exception_based_eligible": "exception_based",
     "exception_based_triggered": "exception_based",
-    "exception_based_elevated": "exception_based",
     "straight_through_eligible": "straight_through_demo",
     "straight_through_ineligible": "straight_through_demo",
     "exception_based_sampled": "exception_based",
@@ -53,13 +52,10 @@ ACTION_TO_TOOL: dict[ActionType, ToolIdentifier | None] = {
     ActionType.CHECK_QUESTIONNAIRE_EVIDENCE_CONSISTENCY: (
         ToolIdentifier.EVIDENCE_CONSISTENCY_CHECKER
     ),
-    ActionType.SEARCH_APPROVED_POLICY: ToolIdentifier.POLICY_RETRIEVER,
     ActionType.CHECK_RAG_EVIDENCE: ToolIdentifier.RAG_EVIDENCE_CHECKER,
     ActionType.CHECK_AGENTIC_AI_AUTONOMY: ToolIdentifier.AGENTIC_AUTONOMY_CHECKER,
     ActionType.CHECK_SUPPLIER_EVIDENCE: ToolIdentifier.SUPPLIER_EVIDENCE_CHECKER,
-    ActionType.GENERATE_FOLLOW_UP_QUESTIONS: ToolIdentifier.FOLLOW_UP_QUESTION_GENERATOR,
     ActionType.VERIFY_CITATIONS: ToolIdentifier.CITATION_VERIFIER,
-    ActionType.SUMMARISE_NEW_EVIDENCE: ToolIdentifier.EVIDENCE_EXTRACTOR,
     ActionType.ESCALATE_TO_AIRO: None,
 }
 
@@ -259,14 +255,3 @@ class PolicySupervisor:
         assignment = self.effective_autonomy_profile(state)
         safe_state["autonomy_profile"] = assignment.effective_profile
         return self.gate_policy.evaluate(gate_id, safe_state)
-
-    def external_action_permission(
-        self, tool_id: str, state: dict[str, Any], human_approved: bool = False
-    ) -> bool:
-        if tool_id not in {
-            ToolIdentifier.CONFLUENCE_DRAFT_CREATOR,
-            ToolIdentifier.EMAIL_TASK_ADAPTER,
-        }:
-            return False
-        assignment = self.effective_autonomy_profile(state)
-        return bool(human_approved and assignment.eligible and state.get("final_outcome"))

@@ -1,5 +1,6 @@
 import pytest
 
+from app.agent.policy import DEMO_PATTERN_MAXIMUMS
 from app.engines.lod2 import calculate_2lod_triggers
 from app.engines.materiality import calculate_materiality
 from app.samples import SAMPLES
@@ -23,6 +24,10 @@ def test_every_demonstration_case_is_created_by_governed_policy(coordinator, sam
     assert assignment["approved_maximum_profile"] == sample.expected_approved_maximum_profile
     assert assignment["governed_pattern_id"] == sample.governed_pattern_id
     assert assignment["policy_version"].startswith("illustrative-demo")
+
+
+def test_governed_pattern_registry_exactly_matches_sample_catalogue():
+    assert set(DEMO_PATTERN_MAXIMUMS) == set(SAMPLES)
 
 
 def test_expected_metadata_cannot_force_runtime_outcomes(coordinator):

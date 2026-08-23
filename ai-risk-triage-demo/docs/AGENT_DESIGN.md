@@ -1,5 +1,8 @@
 # Human-Governed Agent Design
 
+This document describes the implemented design. The system is a local demonstration and all
+profile, pattern, materiality and 2LoD rules are illustrative.
+
 ## Design in one sentence
 
 > One stateful AIRO Case Coordinator uses a deterministic policy supervisor to control a
@@ -20,6 +23,11 @@ authority. This keeps dependencies, invalidation and accountable AIRO decisions 
 The Coordinator is agentic because it observes unresolved objectives, selects among permitted
 preparation actions, loops when evidence changes, verifies results, replans selectively and
 pauses/resumes a durable case. Its decision and action authority remain constrained.
+
+In Responsible AI terms, this is **Code Agency**: executable software can choose among
+bounded preparation actions and invoke approved tools. It is not decision agency over AI
+risk. Deterministic policy and AIRO decisions constrain the code's objective, actions,
+permissions and stopping conditions.
 
 ## Authority boundary
 
@@ -94,9 +102,10 @@ deterministic engine/review-pack nodes. Each contract records ID/version, purpos
 permission, risk, timeout, retry limit, idempotency, approval, allowed profiles and
 implementation status.
 
-The Confluence and email/task entries are safe local demonstrations. They return
-`local-demo://` references and report `external_write=false`; execution requires both an AIRO
-approver and explicit policy permission. There are no credentials or network writes.
+Publication is outside the evidence-tool registry in the current implementation. Explicit
+StateGraph nodes create a local draft, enforce the publication Gate or documented
+straight-through demo policy, then add a `local-demo://` reference. There are no Confluence,
+SharePoint, email or task credentials, adapters or network writes.
 
 The verifier checks result status, case/tool identity and version, confidence, citations,
 source presence, unauthorised external actions and prohibited rule/Gate language. Submitted
@@ -189,6 +198,9 @@ back to `current_authoritative_results` only after governed re-execution.
 5. Add verifier checks and limitations appropriate to the output.
 6. Test allowlisting, schemas, version, idempotency, timeout/retry policy and failure path.
 7. Never give the tool authority over deterministic outcomes or Gates.
+
+If a capability is for future production only, document it as not implemented rather than
+adding an uncalled registry contract.
 
 ### Add a governed pattern
 

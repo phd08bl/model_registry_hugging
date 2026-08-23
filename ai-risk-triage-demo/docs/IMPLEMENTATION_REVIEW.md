@@ -1,6 +1,9 @@
 # Agent-design implementation review
 
-Review date: 23 August 2026. Untouched baseline: **36 tests passed in 2.22 seconds**.
+**Historical record:** this document captures the earlier agent-design refactor review on
+23 August 2026. Its untouched baseline of **36 tests passed in 2.22 seconds** is not the
+current release result. See [RELEASE_READINESS_REPORT.md](RELEASE_READINESS_REPORT.md) for
+the delivery audit and current verification.
 
 This table records the initial review findings before implementation. “Sufficient” means the
 existing capability met the requested governance outcome and was deliberately retained.
@@ -21,7 +24,7 @@ existing capability met the requested governance outcome and was deliberately re
 | Structured issue/state separation | Gaps, inconsistencies and exceptions had separate lists; advisory findings shared follow-up fields | Partial | Missing typed issues, actions, budgets, trace and authoritative/superseded results | Strengthened state with typed records while retaining compatibility fields | `app/state.py`, `app/schemas.py` |
 | Selective invalidation | Answer/evidence changes reran broad evidence flow; stale results were not explicitly archived | No | Final and derived outputs could lack an explicit invalidation history | Added dependency-aware invalidation and superseded-result history | `app/agent/invalidation.py`, `app/graph.py` |
 | Progressive automation as permission | Gate sequence changed deterministically by profile | Partial | Profile was user-selected and logs lacked full eligibility/risk/sampling context | System assignment, downgrade, permission checks and richer autonomy log | `app/agent/policy.py`, `app/graph.py` |
-| Safe external actions | Publication was local only and warned about future adapters | Mostly | No executable contract proving approval and idempotency controls | Added approval-gated, idempotent local demonstration adapters; no real writes | `app/agent/tools.py` |
+| Safe publication | Publication was local only and warned about future adapters | Mostly | Publication needed a clear implemented/future boundary | Retained explicit StateGraph publication Gate and `local-demo://` record; real Confluence/email/SharePoint adapters remain unimplemented | `app/graph.py`, docs |
 | LLM provider unavailable | Governed mock fallback existed and runtime was recorded | Yes | Router needed the same provider-neutral fallback path | Added shared prompts, provider registry, generic fallback and typed adapters | `app/llm/*` |
 | Calibration | Backtest and sensitivity existed and never changed rules | Yes | None | Deliberately left unchanged | `app/services/calibration.py` |
 

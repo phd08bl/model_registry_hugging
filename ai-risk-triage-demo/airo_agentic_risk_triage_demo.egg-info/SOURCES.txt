@@ -14,6 +14,7 @@ app/main.py
 app/samples.py
 app/schemas.py
 app/state.py
+app/versions.py
 app/agent/__init__.py
 app/agent/interrupts.py
 app/agent/invalidation.py
@@ -36,13 +37,18 @@ app/services/__init__.py
 app/services/calibration.py
 app/services/evidence.py
 app/services/review_pack.py
+app/static/app.js
+app/static/index.html
+app/static/styles.css
 tests/test_agent_governance.py
 tests/test_autonomy.py
 tests/test_calibration.py
+tests/test_llm_providers.py
 tests/test_lod2.py
 tests/test_materiality.py
 tests/test_mock_gate_journeys.py
 tests/test_progressive_automation.py
+tests/test_release_contract.py
 tests/test_samples.py
 tests/test_ui_gate_contract.py
 tests/test_work_queue_resume.py

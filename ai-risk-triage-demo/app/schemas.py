@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.versions import CASE_OBJECTIVE_VERSION
+
 MaterialityBand = Literal["negligible", "minor", "moderate", "material", "severe"]
 AutonomyProfile = Literal[
     "human_governed",
@@ -144,38 +146,30 @@ class CaseObjective(BaseModel):
 
     statement: str
     completion_criteria: tuple[str, ...]
-    version: str = "case-objective-1.0"
+    version: str = CASE_OBJECTIVE_VERSION
 
 
 class ActionType(StrEnum):
     EXTRACT_SUBMITTED_EVIDENCE = "extract_submitted_evidence"
     CHECK_QUESTIONNAIRE_EVIDENCE_CONSISTENCY = "check_questionnaire_evidence_consistency"
-    SEARCH_APPROVED_POLICY = "search_approved_policy"
     CHECK_RAG_EVIDENCE = "check_rag_evidence"
     CHECK_AGENTIC_AI_AUTONOMY = "check_agentic_ai_autonomy"
     CHECK_SUPPLIER_EVIDENCE = "check_supplier_evidence"
-    GENERATE_FOLLOW_UP_QUESTIONS = "generate_follow_up_questions"
     VERIFY_CITATIONS = "verify_citations"
-    SUMMARISE_NEW_EVIDENCE = "summarise_new_evidence"
     ESCALATE_TO_AIRO = "escalate_to_airo"
 
 
 class ToolIdentifier(StrEnum):
-    DOCUMENT_PARSER = "document_parser"
     EVIDENCE_EXTRACTOR = "evidence_extractor"
-    POLICY_RETRIEVER = "policy_retriever"
     EVIDENCE_CONSISTENCY_CHECKER = "evidence_consistency_checker"
     RAG_EVIDENCE_CHECKER = "rag_evidence_checker"
     AGENTIC_AUTONOMY_CHECKER = "agentic_ai_autonomy_checker"
     SUPPLIER_EVIDENCE_CHECKER = "supplier_evidence_checker"
-    FOLLOW_UP_QUESTION_GENERATOR = "follow_up_question_generator"
     CHALLENGE_ASSESSOR = "challenge_assessor"
     CITATION_VERIFIER = "citation_verifier"
     MATERIALITY_ENGINE = "materiality_engine"
     LOD2_TRIGGER_ENGINE = "lod2_trigger_engine"
     REVIEW_PACK_GENERATOR = "review_pack_generator"
-    CONFLUENCE_DRAFT_CREATOR = "confluence_draft_creator"
-    EMAIL_TASK_ADAPTER = "email_task_adapter"
 
 
 class ActionProposal(BaseModel):
@@ -217,7 +211,6 @@ class ToolInvocation(BaseModel):
             "run_2lod_engine",
             "generate_review_pack",
             "challenge_assessment",
-            "prepare_local_publication",
         ]
     )
     tool_id: ToolIdentifier

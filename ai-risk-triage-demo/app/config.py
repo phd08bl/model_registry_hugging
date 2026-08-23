@@ -34,7 +34,6 @@ class Settings(BaseSettings):
 
     case_db_path: str = "data/cases.db"
     checkpoint_db_path: str = "data/checkpoints.db"
-    default_autonomy_profile: str = "human_governed"
 
     @property
     def absolute_case_db_path(self) -> Path:

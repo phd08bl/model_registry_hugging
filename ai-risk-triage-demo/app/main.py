@@ -16,6 +16,7 @@ from app.schemas import (
     SensitivityRequest,
 )
 from app.services.calibration import DEMO_HISTORY, run_backtest, run_sensitivity
+from app.versions import APP_VERSION
 
 settings = get_settings()
 llm_client = build_llm_client(settings)
@@ -23,7 +24,7 @@ coordinator = CaseCoordinator(settings, llm_client)
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
+    version=APP_VERSION,
     description=(
         "Demonstration of a human-governed, stateful AIRO Case Coordinator. "
         "All risk rules are illustrative and not approved MRO or PwC methodology."
@@ -52,9 +53,7 @@ def health() -> HealthResponse:
         provider=provider,
         model=model,
         available=available,
-        selected_runtime=str(
-            metadata.get("selected_runtime", metadata.get("runtime", provider))
-        ),
+        selected_runtime=str(metadata.get("selected_runtime", metadata.get("runtime", provider))),
         fallback_enabled=bool(metadata.get("fallback_enabled", False)),
         message=message,
     )
@@ -119,8 +118,6 @@ def start_case(case_id: str) -> dict:
         return coordinator.start(case_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Case not found") from None
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/api/cases/{case_id}/resume")
@@ -131,39 +128,6 @@ def resume_case(case_id: str, decision: HumanDecision) -> dict:
         raise HTTPException(status_code=404, detail="Case not found") from None
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.get("/api/design")
-def design() -> dict:
-    return {
-        "product": "AIRO Human-Governed Agentic Case Coordinator",
-        "governance_framework": "MRO Risk-Based Progressive Automation and Oversight Framework",
-        "orchestration": "LangGraph StateGraph",
-        "classification": (
-            "An agent with deterministic orchestration, constrained decision authority, "
-            "constrained action authority and mandatory AIRO oversight"
-        ),
-        "direct_user": "AI Risk Oversight Team",
-        "activity_types": {
-            "D": "Deterministic approved rules",
-            "L": "Bounded LLM evidence capability",
-            "A": "Agentic case coordination",
-            "H": "Human judgement and accountability",
-        },
-        "principles": [
-            "The Coordinator manages the case.",
-            "Deterministic rules calculate the proposal.",
-            "The LLM processes and challenges evidence.",
-            "AIRO owns reserved decisions.",
-            "A deterministic policy controls autonomy.",
-            "Every tool result is verified and traced.",
-            "Changed inputs invalidate dependent stale results.",
-        ],
-        "normal_case_profile_assignment": "system_assigned_human_governed",
-        "warning": "All demo scoring and trigger rules are illustrative.",
-    }
 
 
 @app.post("/api/calibration/backtest")

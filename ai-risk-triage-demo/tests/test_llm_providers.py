@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from openai import OpenAIError
 
@@ -131,9 +132,7 @@ def test_factory_selects_explicit_modes_and_rejects_invalid_configuration():
     mock = build_llm_client(Settings(llm_mode="mock"))
     assert isinstance(mock, MockLLMClient)
 
-    ollama = build_llm_client(
-        Settings(llm_mode="ollama", allow_mock_fallback=False)
-    )
+    ollama = build_llm_client(Settings(llm_mode="ollama", allow_mock_fallback=False))
     assert isinstance(ollama, OllamaLLMClient)
 
     openai = build_llm_client(
@@ -205,3 +204,19 @@ def test_fallback_records_generic_primary_metadata(monkeypatch):
     assert metadata["primary"]["runtime"] == "ollama"
     assert metadata["primary"]["model"] == "missing-model"
     assert metadata["fallback_enabled"] is True
+
+
+def test_ollama_transport_errors_are_sanitized(monkeypatch):
+    secret = "internal-host-and-evidence"
+    client = OllamaLLMClient("http://127.0.0.1:1", "missing-model", 0.01)
+
+    def unavailable(*args, **kwargs):
+        request = httpx.Request("GET", "http://127.0.0.1:1")
+        raise httpx.ConnectError(secret, request=request)
+
+    monkeypatch.setattr(httpx, "get", unavailable)
+    available, message = client.health()
+
+    assert available is False
+    assert "ConnectError" in message
+    assert secret not in message

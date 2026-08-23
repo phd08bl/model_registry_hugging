@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from app.engines.autonomy import GateEvaluation
+from app.versions import GATE_VERSION
 
 
 class AIROInterruptController:
     """Builds consistent, evidence-linked governance interrupt contracts."""
 
-    gate_version = "airo-gates-1.0"
+    gate_version = GATE_VERSION
 
     def build_payload(
         self,

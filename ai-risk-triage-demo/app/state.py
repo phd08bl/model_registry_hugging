@@ -8,6 +8,7 @@ class TriageState(TypedDict, total=False):
     case_id: str
     thread_id: str
     status: str
+    error: str
     autonomy_profile: str
     autonomy_assignment: dict[str, Any]
     demo_scenario_id: str | None

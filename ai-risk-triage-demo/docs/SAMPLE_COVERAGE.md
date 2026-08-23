@@ -1,5 +1,8 @@
 # Demonstration-case coverage
 
+**Status:** current 15-case catalogue. All expected profiles, patterns, risk outputs and Gate
+routes are illustrative demo behavior; metadata cannot force runtime decisions.
+
 ## Review-first gap analysis
 
 This matrix records the post-refactor state inspected before sample changes.

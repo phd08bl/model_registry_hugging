@@ -1,5 +1,8 @@
 # Agentic AI, StateGraph, and Progressive Automation Design
 
+**Status:** detailed description of the current local implementation. All materiality, 2LoD,
+pattern, profile and sampling rules are illustrative demo policy.
+
 ## Overview
 
 This application is a governed, stateful AI workflow. It is not a free-running autonomous agent and it is not a multi-agent system.
@@ -143,7 +146,10 @@ At Gate 1, AIRO can:
 
 ## Human Gates, interruption, and resumption
 
-Each Human Gate first asks `AutonomyPolicyEngine` whether review is required. If the policy allows the gate to be skipped, the graph records the policy evaluation and moves to the next node. If review is required, the node calls LangGraph's `interrupt(payload)`.
+Each Human Gate first asks `PolicySupervisor`, which delegates the deterministic Gate rule to
+`AutonomyPolicyEngine` after re-evaluating the effective profile. If policy allows the Gate
+to be skipped, the graph records the evaluation and moves to the next node. If review is
+required, the node calls LangGraph's `interrupt(payload)`.
 
 The gate payload contains:
 
@@ -247,7 +253,10 @@ At Gate 5, AIRO can approve publication, save a draft, or cancel the case. Publi
 
 ## Progressive Automation policy
 
-The deterministic policy is implemented in [`app/engines/autonomy.py`](../app/engines/autonomy.py). The LLM is not an input to the gate decision beyond findings that have been bounded and converted into approved state fields.
+The deterministic Gate policy is implemented in
+[`app/engines/autonomy.py`](../app/engines/autonomy.py) and is controlled through
+`PolicySupervisor` in `app/agent/policy.py`. The LLM is not an input to the Gate decision
+beyond findings that have been bounded and converted into approved state fields.
 
 For each gate, the policy considers:
 
@@ -271,7 +280,9 @@ The current code considers a case eligible when all of the following are true:
 - the solution is not a critical-process dependency; and
 - there are no exceptions, missing-information findings, or inconsistencies.
 
-Before the deterministic engines run, there is no proposed materiality band. Therefore, low-risk eligibility is false at that point. This explains why the `exception_based` and `straight_through` profiles require initial Gate 2 input governance.
+Before the deterministic engines run, there is no proposed materiality band. Therefore,
+low-risk eligibility is false at that point. This explains why the `exception_based` and
+`straight_through_demo` profiles require initial Gate 2 input governance.
 
 ## Profile comparison
 
@@ -280,7 +291,7 @@ Before the deterministic engines run, there is no proposed materiality band. The
 | `human_governed` | Required if activated | Required | Required | Required | Required |
 | `conditional_review` | Required if activated | Usually skipped when clean | Required for exceptions or elevated cases | Always required | Required |
 | `exception_based` | Required if activated | Required initially | Skipped only when eligible and clean | Required for exceptions, ineligibility, elevated risk, or sampling | Required |
-| `straight_through` | Required if activated | Required initially | Skipped when eligible | Skipped when eligible | Automatically approved locally when eligible |
+| `straight_through_demo` | Required if activated | Required initially | Skipped when eligible | Skipped when eligible | Automatically approved locally when eligible |
 
 ## `human_governed`
 
@@ -387,7 +398,7 @@ Deterministic sampling hashes the case ID with SHA-256 and compares the resultin
 
 If an eligible case is not sampled, Gate 4 is skipped and the proposal receives `AUTO_CONFIRMED_WITHIN_DEMO_POLICY`; Gate 5 still requires human publication approval.
 
-## `straight_through`
+## `straight_through_demo`
 
 This profile also requires Gate 2 initially because eligibility cannot be established until materiality has been calculated.
 
@@ -426,9 +437,12 @@ Gate 2 Input Confirmation
 → Closed
 ```
 
-Selecting `straight_through` does not guarantee automation. The case must first satisfy the low-risk eligibility boundary. An ineligible case fails safely to human review.
+Assignment to `straight_through_demo` does not guarantee automation. The case must first
+satisfy the low-risk eligibility boundary. An ineligible case fails safely to human review.
 
-The schema and policy engine also accept `straight_through_demo` as a legacy compatibility alias. Current demonstration cases use the canonical `straight_through` value.
+The schema and policy engine also accept `straight_through` as a compatibility alias for
+stored demonstration data. Current demonstration cases use the canonical,
+explicitly-labelled `straight_through_demo` value.
 
 ## Persistence and audit model
 
@@ -457,7 +471,7 @@ The main safeguards in the current design are:
 - Materiality and 2LoD routing use transparent Python rules.
 - Free-form LLM challenge findings are advisory.
 - Unknown autonomy profiles fail safely to mandatory human review.
-- Ineligible straight-through cases fail safely to Gates 3–5.
+- Ineligible straight-through demo cases fail safely to Gates 3–5.
 - Human actions are restricted to the allowed actions for the active gate.
 - Overrides must change the materiality band or 2LoD teams and require a rationale.
 - Human decisions and autonomy-policy evaluations are retained.
@@ -469,7 +483,7 @@ The main safeguards in the current design are:
 The following details are important when interpreting the policy:
 
 1. The `elevated` flag used directly by the autonomy engine means `material` or `severe`.
-2. A `moderate` case is not directly marked elevated, but it is outside low-risk eligibility. It therefore requires review under `exception_based` and `straight_through`.
+2. A `moderate` case is not directly marked elevated, but it is outside low-risk eligibility. It therefore requires review under `exception_based` and `straight_through_demo`.
 3. Personal data, customer-facing use, and external suppliers are not standalone exclusions in `_low_risk_eligible()`. They affect materiality scoring, but a case can technically remain eligible if the final band is still `negligible` or `minor` and every explicit eligibility condition passes.
 4. If production policy intends any of those flags to be absolute straight-through exclusions, they should be added explicitly to the approved autonomy policy rather than inferred from LLM analysis.
 5. The policy is labelled `demo-autonomy-1.0`; materiality and 2LoD rules also state that they are illustrative rather than approved production methodology.

@@ -132,9 +132,7 @@ def _build_openai(settings: Settings) -> LLMClient:
 def _build_openai_compatible(settings: Settings) -> LLMClient:
     api_key, model = _openai_credentials(settings, "openai_compatible")
     if not settings.openai_base_url:
-        raise ValueError(
-            "OPENAI_BASE_URL is required for LLM_MODE=openai_compatible."
-        )
+        raise ValueError("OPENAI_BASE_URL is required for LLM_MODE=openai_compatible.")
     return OpenAILLMClient(
         api_key=api_key,
         model=model,

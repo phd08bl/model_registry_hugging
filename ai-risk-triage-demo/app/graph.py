@@ -30,9 +30,7 @@ from app.services.evidence import (
     build_targeted_questions,
 )
 from app.state import TriageState
-
-WORKFLOW_VERSION = "airo-case-coordinator-0.2"
-PROMPT_VERSION = "demo-prompts-0.2"
+from app.versions import PROMPT_VERSION, QUESTIONNAIRE_VERSION, RULESET_VERSION, WORKFLOW_VERSION
 
 
 def now() -> str:
@@ -194,8 +192,8 @@ class TriageGraphFactory:
             "questionnaire": questionnaire,
             "status": "INGESTING",
             "evidence_cycle": state.get("evidence_cycle", 0),
-            "questionnaire_version": state.get("questionnaire_version", "demo-questionnaire-1.0"),
-            "rule_version": "demo-rules-1.0",
+            "questionnaire_version": state.get("questionnaire_version", QUESTIONNAIRE_VERSION),
+            "rule_version": RULESET_VERSION,
             "workflow_version": WORKFLOW_VERSION,
             "prompt_version": PROMPT_VERSION,
             "completed_nodes": _append_unique(state.get("completed_nodes"), "normalise_intake"),

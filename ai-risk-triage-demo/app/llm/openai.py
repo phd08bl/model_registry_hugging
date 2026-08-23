@@ -52,9 +52,7 @@ class OpenAILLMClient(StructuredLLMClient):
             self.client.models.retrieve(self.model)
             return True, f"{self.runtime_name} model '{self.model}' is available."
         except OpenAIError as exc:  # pragma: no cover - requires a live service
-            return False, (
-                f"{self.runtime_name} is unavailable: {self._error_summary(exc)}"
-            )
+            return False, (f"{self.runtime_name} is unavailable: {self._error_summary(exc)}")
 
     def _structured(self, system: str, user: str, response_model: type[T]) -> T:
         try:
@@ -67,16 +65,13 @@ class OpenAILLMClient(StructuredLLMClient):
             )
             parsed = response.output_parsed
             if parsed is None:
-                raise LLMRuntimeError(
-                    f"{self.runtime_name} returned no parsed structured output."
-                )
+                raise LLMRuntimeError(f"{self.runtime_name} returned no parsed structured output.")
             return parsed
         except LLMRuntimeError:
             raise
         except (OpenAIError, ValidationError, TypeError, ValueError) as exc:
             raise LLMRuntimeError(
-                f"{self.runtime_name} structured-output call failed: "
-                f"{self._error_summary(exc)}"
+                f"{self.runtime_name} structured-output call failed: {self._error_summary(exc)}"
             ) from exc
 
     def runtime_metadata(self) -> dict[str, Any]:

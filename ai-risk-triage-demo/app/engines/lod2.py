@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-DEMO_TRIGGER_VERSION = "demo-2lod-1.0"
+from app.versions import LOD2_TRIGGER_VERSION
+
+DEMO_TRIGGER_VERSION = LOD2_TRIGGER_VERSION
 
 
 def calculate_2lod_triggers(questionnaire: dict[str, Any]) -> dict[str, Any]:

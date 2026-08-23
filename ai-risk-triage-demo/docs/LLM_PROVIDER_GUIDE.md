@@ -1,5 +1,9 @@
 # LLM Provider Configuration and Extension Guide
 
+**Status:** mock, Ollama, OpenAI and OpenAI-compatible adapters are implemented. A generic
+vendor example is extension guidance only; it is not an installed provider. Hosted-provider
+use requires separate organisational, model, data and network approval.
+
 This guide explains the implemented provider-neutral LLM architecture, how to switch between
 the built-in runtimes, and how to add another API without changing the governed workflow.
 
@@ -62,6 +66,9 @@ registry accepts:
 | `ollama` | `OllamaLLMClient` | Ollama URL and installed model |
 | `openai` | `OpenAILLMClient` | `OPENAI_API_KEY`, `OPENAI_MODEL` |
 | `openai_compatible` | `OpenAILLMClient` with custom base URL | API key, model and `OPENAI_BASE_URL` |
+
+These modes change transport, not authority. None may set materiality, 2LoD, autonomy,
+Gates, final approval or publication permission.
 
 An unknown value fails during startup. It never silently falls back to Ollama or another
 provider. This is important because silent provider substitution could send evidence to an
@@ -440,8 +447,10 @@ Run all checks after adding or changing a provider:
 ```powershell
 python -m pip install -e ".[dev]"
 python -m pytest
-python -m ruff check app tests
+python -m ruff check .
+python -m ruff format --check .
 python -m compileall -q app tests
+python -m pip check
 ```
 
 The repository's provider tests cover OpenAI request construction through an injected fake

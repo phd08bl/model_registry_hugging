@@ -4,6 +4,8 @@ import hashlib
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from app.versions import AUTONOMY_POLICY_VERSION
+
 STRAIGHT_THROUGH_PROFILES = {"straight_through", "straight_through_demo"}
 
 
@@ -13,7 +15,7 @@ class GateEvaluation:
     required: bool
     mode: str
     rationale: str
-    policy_version: str = "demo-autonomy-1.0"
+    policy_version: str = AUTONOMY_POLICY_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -22,7 +24,7 @@ class GateEvaluation:
 class AutonomyPolicyEngine:
     """Deterministic gate policy. The LLM never decides whether a gate is skipped."""
 
-    policy_version = "demo-autonomy-1.0"
+    policy_version = AUTONOMY_POLICY_VERSION
 
     @staticmethod
     def _sample_selected(case_id: str, rate: float = 0.25) -> bool:

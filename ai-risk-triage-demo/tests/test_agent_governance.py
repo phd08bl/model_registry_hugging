@@ -260,29 +260,24 @@ def invocation(tool_id: ToolIdentifier, registry: ToolRegistry, **kwargs) -> Too
     )
 
 
-def test_tool_registry_validates_versions_write_approval_and_idempotency():
+def test_tool_registry_validates_versions_and_idempotency():
     registry = ToolRegistry(MockLLMClient())
     wrong_version = invocation(ToolIdentifier.EVIDENCE_EXTRACTOR, registry).model_copy(
         update={"tool_version": "unapproved"}
     )
     assert registry.invoke(wrong_version, "human_governed").status == "failed"
 
-    write = invocation(
-        ToolIdentifier.CONFLUENCE_DRAFT_CREATOR,
+    first_invocation = invocation(
+        ToolIdentifier.EVIDENCE_EXTRACTOR,
         registry,
-        action="prepare_local_publication",
-        inputs={"case_id": "AIRO-TEST", "content": {}},
-        approved_by="AIRO reviewer",
-        idempotency_key="write-key",
+        idempotency_key="evidence-key",
     )
-    assert registry.invoke(write, "human_governed").status == "prohibited"
-    first = registry.invoke(write, "human_governed", external_write_permitted=True)
-    replay = write.model_copy(update={"invocation_id": "CALL-REPLAY"})
-    second = registry.invoke(replay, "human_governed", external_write_permitted=True)
+    first = registry.invoke(first_invocation, "human_governed")
+    replay = first_invocation.model_copy(update={"invocation_id": "CALL-REPLAY"})
+    second = registry.invoke(replay, "human_governed")
     assert first.status == "succeeded"
     assert second.invocation_id == "CALL-REPLAY"
     assert second.idempotent_replay is True
-    assert first.output["external_write"] is False
 
 
 def test_tool_registry_validates_input_and_output_contracts(monkeypatch):
@@ -304,6 +299,26 @@ def test_tool_registry_validates_input_and_output_contracts(monkeypatch):
         idempotency_key="bad-output",
     )
     assert registry.invoke(bad_output, "human_governed").status == "failed"
+
+
+def test_tool_registry_does_not_expose_validation_input(monkeypatch):
+    registry = ToolRegistry(MockLLMClient())
+    secret = "sensitive-evidence-value"
+
+    def fail(values):
+        raise ValueError(secret)
+
+    monkeypatch.setitem(registry._handlers, ToolIdentifier.EVIDENCE_EXTRACTOR, fail)
+    failed = invocation(
+        ToolIdentifier.EVIDENCE_EXTRACTOR,
+        registry,
+        idempotency_key="sanitized-error",
+    )
+    result = registry.invoke(failed, "human_governed")
+
+    assert result.status == "failed"
+    assert "ValueError" in result.error
+    assert secret not in result.error
 
 
 def test_result_verifier_checks_citations_injection_and_rule_changes():

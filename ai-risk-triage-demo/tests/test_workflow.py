@@ -272,3 +272,26 @@ def test_save_draft_returns_to_publication_gate(coordinator):
     case = coordinator.resume(case_id, decision("save_draft"))
     assert case["state"]["publication_status"] == "DRAFT_SAVED"
     assert case["pending_gate"]["gate_id"] == "publication"
+
+
+def test_workflow_failure_is_stored_without_internal_exception_text(coordinator, monkeypatch):
+    case = coordinator.create_demo_case(SAMPLES["human_full_review"])
+    secret = "sensitive internal evidence or connection detail"
+
+    def fail_closed(*args, **kwargs):
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(coordinator.graph, "invoke", fail_closed)
+    with pytest.raises(RuntimeError, match=secret):
+        coordinator.start(case["case_id"])
+
+    stored = coordinator.get_case(case["case_id"])
+    serialized = str(stored)
+    assert stored["status"] == "ERROR"
+    assert "failed closed" in stored["state"]["error"]
+    assert secret not in serialized
+    graph_error = next(item for item in stored["audit"] if item["action"] == "GRAPH_ERROR")
+    assert graph_error["details"] == {
+        "error_type": "RuntimeError",
+        "details_exposed": False,
+    }

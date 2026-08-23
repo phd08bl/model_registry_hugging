@@ -19,11 +19,11 @@ from app.schemas import (
     ToolResult,
 )
 from app.services.evidence import (
-    build_targeted_questions,
     deterministic_evidence_checks,
     numbered_text,
 )
 from app.services.review_pack import build_review_pack
+from app.versions import TOOL_CONTRACT_VERSION
 
 ALL_PROFILES: set[AutonomyProfile] = {
     "human_governed",
@@ -43,11 +43,6 @@ class StateToolInput(BaseModel):
     state: dict[str, Any]
 
 
-class LocalDraftInput(BaseModel):
-    case_id: str
-    content: dict[str, Any]
-
-
 def _contract(
     tool_id: ToolIdentifier,
     purpose: str,
@@ -61,7 +56,7 @@ def _contract(
 ) -> ToolContract:
     return ToolContract(
         tool_id=tool_id,
-        version="demo-1.0",
+        version=TOOL_CONTRACT_VERSION,
         purpose=purpose,
         input_schema=input_schema,
         output_schema=output_schema,
@@ -84,42 +79,26 @@ class ToolRegistry:
         self._contracts = self._build_contracts()
         self._results_by_key: dict[str, ToolResult] = {}
         self._handlers: dict[ToolIdentifier, Callable[[dict[str, Any]], dict[str, Any]]] = {
-            ToolIdentifier.DOCUMENT_PARSER: self._parse_document,
             ToolIdentifier.EVIDENCE_EXTRACTOR: self._extract_evidence,
-            ToolIdentifier.POLICY_RETRIEVER: self._retrieve_demo_policy,
             ToolIdentifier.EVIDENCE_CONSISTENCY_CHECKER: self._check_consistency,
             ToolIdentifier.RAG_EVIDENCE_CHECKER: self._check_rag,
             ToolIdentifier.AGENTIC_AUTONOMY_CHECKER: self._check_agentic,
             ToolIdentifier.SUPPLIER_EVIDENCE_CHECKER: self._check_supplier,
-            ToolIdentifier.FOLLOW_UP_QUESTION_GENERATOR: self._follow_up_questions,
             ToolIdentifier.CHALLENGE_ASSESSOR: self._challenge,
             ToolIdentifier.CITATION_VERIFIER: self._verify_citations,
             ToolIdentifier.MATERIALITY_ENGINE: self._materiality,
             ToolIdentifier.LOD2_TRIGGER_ENGINE: self._lod2,
             ToolIdentifier.REVIEW_PACK_GENERATOR: self._review_pack,
-            ToolIdentifier.CONFLUENCE_DRAFT_CREATOR: self._local_confluence_demo,
-            ToolIdentifier.EMAIL_TASK_ADAPTER: self._local_task_demo,
         }
 
     @staticmethod
     def _build_contracts() -> dict[ToolIdentifier, ToolContract]:
         values = [
             _contract(
-                ToolIdentifier.DOCUMENT_PARSER,
-                "Parse supplied text without external access",
-                "read_only",
-                input_schema="EvidenceToolInput",
-            ),
-            _contract(
                 ToolIdentifier.EVIDENCE_EXTRACTOR,
                 "Extract evidence claims with source references",
                 input_schema="EvidenceToolInput",
                 output_schema="EvidenceExtraction",
-            ),
-            _contract(
-                ToolIdentifier.POLICY_RETRIEVER,
-                "Retrieve versioned illustrative demo policy",
-                "read_only",
             ),
             _contract(
                 ToolIdentifier.EVIDENCE_CONSISTENCY_CHECKER,
@@ -136,9 +115,6 @@ class ToolRegistry:
             ),
             _contract(
                 ToolIdentifier.SUPPLIER_EVIDENCE_CHECKER, "Identify supplier evidence observations"
-            ),
-            _contract(
-                ToolIdentifier.FOLLOW_UP_QUESTION_GENERATOR, "Generate advisory follow-up questions"
             ),
             _contract(
                 ToolIdentifier.CHALLENGE_ASSESSOR, "Produce a bounded advisory challenge assessment"
@@ -163,24 +139,6 @@ class ToolRegistry:
                 "Prepare a reversible local review pack",
                 "read_only",
             ),
-            _contract(
-                ToolIdentifier.CONFLUENCE_DRAFT_CREATOR,
-                "Safe local demonstration of a future Confluence draft adapter",
-                "write",
-                "high",
-                "mocked",
-                input_schema="LocalDraftInput",
-                approval=True,
-            ),
-            _contract(
-                ToolIdentifier.EMAIL_TASK_ADAPTER,
-                "Safe local demonstration of a future email/task adapter",
-                "write",
-                "high",
-                "mocked",
-                input_schema="LocalDraftInput",
-                approval=True,
-            ),
         ]
         return {item.tool_id: item for item in values}
 
@@ -199,7 +157,6 @@ class ToolRegistry:
         model = {
             "EvidenceToolInput": EvidenceToolInput,
             "StateToolInput": StateToolInput,
-            "LocalDraftInput": LocalDraftInput,
         }.get(contract.input_schema)
         if model:
             model.model_validate(values)
@@ -273,7 +230,7 @@ class ToolRegistry:
             except (ValidationError, KeyError, TypeError, ValueError, RuntimeError) as exc:
                 result = self._failure(
                     invocation,
-                    str(exc),
+                    f"{type(exc).__name__}: governed tool validation or execution failed.",
                     retry_count=retry_count,
                     duration_ms=(perf_counter() - started) * 1000,
                 )
@@ -306,11 +263,6 @@ class ToolRegistry:
             timed_out=timed_out,
         )
 
-    @staticmethod
-    def _parse_document(values: dict[str, Any]) -> dict[str, Any]:
-        text = values["evidence_text"]
-        return {"numbered_text": numbered_text(text), "line_count": len(text.splitlines())}
-
     def _extract_evidence(self, values: dict[str, Any]) -> dict[str, Any]:
         extraction = self.llm.extract_evidence(
             values["questionnaire"], numbered_text(values["evidence_text"])
@@ -336,13 +288,6 @@ class ToolRegistry:
             "mandatory_evidence_gaps": missing,
             "inconsistencies": inconsistencies,
             "confidence": 1.0,
-        }
-
-    @staticmethod
-    def _retrieve_demo_policy(values: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "policy_version": "illustrative-demo-agent-policy-1.0",
-            "notice": "Illustrative demo policy only; not approved PwC or MRO methodology.",
         }
 
     @staticmethod
@@ -396,16 +341,6 @@ class ToolRegistry:
                 observations.append(observation)
         return {"observations": observations, "confidence": 0.75}
 
-    @staticmethod
-    def _follow_up_questions(values: dict[str, Any]) -> dict[str, Any]:
-        state = values.get("state", {})
-        return {
-            "questions": build_targeted_questions(
-                state.get("missing_information", []), state.get("inconsistencies", [])
-            ),
-            "confidence": 1.0,
-        }
-
     def _challenge(self, values: dict[str, Any]) -> dict[str, Any]:
         challenge = self.llm.challenge(values["state"])
         return {**challenge.model_dump(), "confidence": 0.75}
@@ -432,20 +367,6 @@ class ToolRegistry:
     @staticmethod
     def _review_pack(values: dict[str, Any]) -> dict[str, Any]:
         return build_review_pack(values["state"])
-
-    @staticmethod
-    def _local_confluence_demo(values: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "local_demo_reference": f"local-demo://confluence-draft/{values['case_id']}",
-            "external_write": False,
-        }
-
-    @staticmethod
-    def _local_task_demo(values: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "local_demo_reference": f"local-demo://task/{values['case_id']}",
-            "external_write": False,
-        }
 
 
 def evidence_line_numbers(text: str) -> set[int]:

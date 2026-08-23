@@ -137,10 +137,10 @@ def test_straight_through_fails_safely_when_ineligible():
     )
 
 
-def test_legacy_straight_through_demo_profile_remains_compatible():
+def test_legacy_straight_through_profile_remains_compatible():
     engine = AutonomyPolicyEngine()
-    canonical = _eligible_state("straight_through")
-    legacy = _eligible_state("straight_through_demo")
+    canonical = _eligible_state("straight_through_demo")
+    legacy = _eligible_state("straight_through")
 
     for gate_id in ("input_confirmation", "exception_resolution", "final_triage", "publication"):
         assert (

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-DEMO_RULE_VERSION = "demo-materiality-1.0"
+from app.versions import MATERIALITY_RULE_VERSION
+
+DEMO_RULE_VERSION = MATERIALITY_RULE_VERSION
 
 BAND_ORDER = ["negligible", "minor", "moderate", "material", "severe"]
 

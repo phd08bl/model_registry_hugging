@@ -1,257 +1,287 @@
 # AIRO Human-Governed Agentic Case Coordinator
 
-A runnable Python demonstration of an AI Risk Triage tool for an AI Risk Oversight Team
-(AIRO). It uses a LangGraph `StateGraph` to coordinate a persistent case, deterministic
-materiality and 2LoD routing engines, pluggable bounded LLM providers, and mandatory or
-risk-based human decision gates. Ollama, OpenAI, OpenAI-compatible endpoints and a
-deterministic mock are supported through one provider-neutral contract.
+A runnable demonstration for the AI Tech & Tooling and AI Risk Oversight (AIRO) teams. One
+stateful Case Coordinator uses LangGraph to manage evidence work, deterministic risk
+proposals, human decisions and a local publication record. The LLM is a bounded evidence and
+action-routing capability; it is not the risk decision-maker.
 
-> **Important:** all questionnaire fields, scores, thresholds, dealbreakers, minimum-route
-> rules, 2LoD mappings and autonomy policies in this repository are illustrative. They are
-> not approved PwC or MRO methodology and must not be used for real risk decisions.
+> **Demo-policy warning:** every materiality score, threshold, dealbreaker, minimum route,
+> 2LoD mapping, governed pattern, Progressive Automation profile rule and sampling rule in
+> this repository is illustrative. None is approved PwC, MRO or bank methodology. The LLM
+> never makes the final risk decision, AIRO retains final authority, and the straight-through
+> path is a local demonstration only.
 
-## What the demo proves
+## Governance boundary
 
-- The user works from a case queue rather than manually moving through rigid tabs.
-- The Coordinator chooses the next permitted step from case state and approved policy.
-- Missing or conflicting evidence creates a task and pauses the case for AIRO.
-- The configured LLM extracts and challenges evidence but cannot calculate, approve or
-  publish a risk outcome.
-- Materiality and 2LoD engagement are separate, transparent deterministic engines.
-- LangGraph interrupts persist the case at Human Gates; the same `thread_id` resumes after
-  an AIRO decision.
-- A deterministic autonomy policy supports progressive automation without changing the
-  architecture.
-- A deterministic `PolicySupervisor` assigns the effective profile, allowlists actions and
-  tools, enforces budgets and validates every router proposal.
-- Tool results pass through deterministic verification; evidence changes archive and
-  invalidate dependent stale outputs before selective reruns.
-- Every human decision, graph pause/resume and runtime choice is stored in an audit history.
-- Historical backtesting and one-answer-at-a-time sensitivity analysis support rule
-  calibration; neither changes rules automatically.
+> One stateful AIRO Case Coordinator uses a deterministic policy supervisor to control a
+> bounded LLM evidence/action router and approved tools. Tool results are verified, evidence
+> changes trigger selective replanning, and meaningful judgement is escalated through AIRO
+> Gates. Deterministic engines produce materiality and independent 2LoD proposals; AIRO
+> retains final decision authority.
 
-## Architecture at a glance
+The implementation deliberately has one Coordinator, not a collection of independent
+agents. The deterministic supervisor—not the model—assigns and downgrades automation
+profiles, chooses the allowlists, enforces budgets and determines whether a Gate is required.
+Unknown states, profiles, tools and actions fail closed.
+
+## Capability status
+
+| Capability | Delivery status |
+|---|---|
+| LangGraph `StateGraph`, SQLite checkpointing and Case store | Implemented and tested for a local demonstration |
+| Policy supervisor, bounded router, typed tool registry and verifier | Implemented and tested |
+| Deterministic materiality and independent 2LoD engines | Implemented and tested with illustrative rules only |
+| AIRO `interrupt()` Gates and durable resume | Implemented and tested locally |
+| Selective invalidation and superseded-result history | Implemented and tested |
+| Mock LLM | Implemented, deterministic and used by automated tests |
+| Ollama | Implemented local adapter; requires a separately installed model |
+| OpenAI / OpenAI-compatible Responses endpoint | Implemented adapter; requires approved configuration and service access |
+| Review pack and publication | Implemented as local records only |
+| Backtesting and sensitivity | Implemented as diagnostics; never changes rules automatically |
+| Confluence, SharePoint, email or task-system writes | Not implemented |
+| SSO, RBAC, production evidence storage and enterprise observability | Future production considerations |
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    U["AIRO case workspace"] --> C["StateGraph Case Coordinator"]
-    C --> S["Deterministic Policy Supervisor"]
-    S --> L["Bounded provider-neutral LLM action router"]
-    S --> T["Approved Tool Registry"]
-    T --> V["Result Verifier"]
-    T --> D["Deterministic risk engines"]
-    C --> H["AIRO Human Gates"]
-    L --> S
+    UI[AIRO Case workspace] --> C[One StateGraph Case Coordinator]
+    C --> S[Deterministic Policy Supervisor]
+    S --> R[Bounded LLM evidence/action router]
+    S --> T[Approved typed Tool Registry]
+    T --> V[Deterministic Result Verifier]
+    T --> M[Illustrative materiality engine]
+    T --> L[Illustrative independent 2LoD engine]
     V --> C
-    D --> C
-    H --> C
-    C --> P["Review pack and local publication record"]
+    M --> C
+    L --> C
+    C --> G[LangGraph AIRO interrupts]
+    G --> C
+    C --> P[Review pack and local publication record]
 ```
 
-The system uses four activity types:
+Four activity types remain visible in code and documentation:
 
-| Type | Responsibility | Examples in the demo |
+| Type | Responsibility | Current implementation |
 |---|---|---|
-| **A — Agentic coordination** | Plan, route, pause, resume and re-plan the case | `app/graph.py` |
-| **L — Bounded LLM** | Extract evidence and challenge unsupported claims | `app/llm/` adapters |
-| **D — Deterministic** | Calculate materiality, 2LoD triggers and autonomy gates | `app/engines/` |
-| **H — Human judgement** | Confirm facts, resolve exceptions, decide triage and approve writes | LangGraph interrupts |
+| **A — Agentic coordination** | Observe, plan, route, loop, pause, resume and selectively replan | `app/graph.py` |
+| **L — Bounded LLM** | Extract cited evidence, challenge assumptions and recommend one allowlisted evidence action | `app/llm/` |
+| **D — Deterministic** | Assign permissions, verify results and calculate illustrative proposals | `app/agent/`, `app/engines/` |
+| **H — Human judgement** | Confirm facts, accept exceptions, override proposals and approve local publication | AIRO Gates |
 
-This is deliberately a **single Case Coordinator**, not a group of role-playing agents.
-Separate agents would add coordination and assurance complexity without improving the core
-case-management problem.
+See [Architecture](docs/ARCHITECTURE.md) and [Agent design](docs/AGENT_DESIGN.md) for the
+control flow and module boundaries.
 
-## Quick start
-
-The default provider is Ollama. Prerequisites: Python 3.11+ and a local
-[Ollama](https://docs.ollama.com/) installation.
-
-```bash
-ollama serve
-ollama pull llama3.2:3b
-
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-cp .env.example .env
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Open <http://127.0.0.1:8000>. API documentation is at
-<http://127.0.0.1:8000/docs>.
-
-### Use OpenAI
-
-Install the project as above, choose an approved model that supports Structured Outputs,
-and provide the key through a protected environment or secret store:
-
-```bash
-LLM_MODE=openai \
-OPENAI_API_KEY=your-key \
-OPENAI_MODEL=your-approved-model-id \
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-The OpenAI adapter uses the Responses API with typed Pydantic output and requests
-`store=false` by default. See the [LLM provider guide](docs/LLM_PROVIDER_GUIDE.md) for
-OpenAI-compatible endpoints and custom-provider registration.
-
-### Run without a live LLM
-
-The deterministic mock is provided for automated tests and architecture demonstrations:
-
-```bash
-LLM_MODE=mock uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Mock mode runs the same supervisor, router contracts, registry, verifier, StateGraph,
-deterministic engines, SQLite checkpoints and AIRO interrupts as live-provider modes. Only
-the variable LLM responses are replaced by protected, repeatable demonstration responses.
-The UI labels the provider and actual model/runtime; it does not present a configured live
-model as active in mock mode. In the workflow strip, AIRO-completed Gates, deterministic
-policy skips and event-driven Gates that were not triggered are shown as different states.
-
-When a live provider is selected and `ALLOW_MOCK_FALLBACK=true`, the UI visibly reports a
-degraded primary-provider health state while governed mock fallback remains available. Each
-case records the configured primary and runtime actually used.
-
-### Windows PowerShell
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-Copy-Item .env.example .env
-$env:LLM_MODE = "mock"
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-## Recommended demonstration
-
-1. Create **Human Governed — Policy RAG Evidence Conflict** and start the Coordinator.
-2. At Gate 1 inspect the actual router proposal, approved tool, verifier and remaining budget.
-3. Add the evidence and answer update shown in `docs/DEMO_SCRIPT.md`; inspect targeted
-   invalidation and complete the AIRO Gates.
-4. Compare the approved conditional pattern, the deterministically sampled exception case
-   and the eligible straight-through demo.
-5. Finish with **Advanced — Invalid Tool Proposal** to show allowlist rejection without a
-   tool invocation.
-
-See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for a presenter narrative.
-
-## Human Gates
-
-| Gate | Reserved AIRO decision | Example loop |
-|---|---|---|
-| Evidence request | Add evidence, proceed with a recorded gap, or cancel | Back to extraction |
-| Material input confirmation | Confirm or amend structured facts | Back to extraction |
-| Exception resolution | Proceed, amend, seek more evidence, or cancel | Back to evidence/review |
-| Final triage | Confirm or override materiality and 2LoD engagement | Back to exception review |
-| Publication | Approve local record, save a draft, or cancel | Durable publication pause |
-
-LangGraph nodes containing `interrupt()` may restart from the beginning when resumed. The
-implementation therefore keeps side effects outside those nodes and records application
-audits at the Coordinator boundary.
-
-### Work queue and durable resume
-
-The UI keeps the work queue deliberately small: it shows at most five Cases, ordered by the
-most recent update. Each card distinguishes **start**, **resume at a named AIRO Gate** and
-**read-only completed/cancelled review**. An exact Case-ID lookup can restore an older Case;
-the selected historical Case replaces one recent card, so the visible queue remains capped
-at five. Opening a card never submits a decision. A separate **Continue at current Gate**
-control moves the user to the restored Gate form.
-
-Case snapshots live in `data/cases.db`; LangGraph checkpoints live in
-`data/checkpoints.db`. Retaining both files allows a Case paused at `interrupt()` to resume
-after an application restart using the same `case_id`/`thread_id`. Terminal Cases remain
-available for audit but cannot be resumed because they have no pending Gate.
-
-## Progressive automation profiles
-
-| Profile | Recommended UI definition |
-|---|---|
-| `human_governed` | Every applicable AIRO decision gate is mandatory; Gate 1 is activated when evidence gaps or conflicts exist. |
-| `conditional_review` | Clean preparation stages may be skipped, but exception review is triggered when needed and final triage remains mandatory. |
-| `exception_based` | Following initial input governance, eligible low-risk cases may skip later review unless exceptions, elevated risk, ineligibility or sampling requires AIRO review. |
-| `straight_through_demo` | Only an explicitly eligible low-risk illustrative fixture may complete later permitted decisions and local-demo publication; ineligible cases fail safely to human review. |
-
-`straight_through` remains accepted as a compatibility alias for stored demonstration cases.
-New governed fixtures use the more explicit `straight_through_demo`; normal custom cases are
-always assigned `human_governed`.
-
-The autonomy policy is deterministic and fail-safe. The LLM never decides its own autonomy.
-The normal `/api/cases` request has no autonomy-profile field: custom cases are assigned
-`human_governed`. Higher profiles are available only through governed illustrative sample
-fixtures, and the supervisor may downgrade them based on risk or evidence conditions.
-Production use should start with `human_governed`; moving a case population to another
-profile requires approved eligibility criteria, performance evidence and accountable owners.
-
-### Governed scenario library
-
-The UI exposes 15 typed cases in **Core workflow**, **Progressive Automation** and
-**Advanced controls** groups. See [the sample coverage matrix](docs/SAMPLE_COVERAGE.md) for
-each profile, router/tool behaviour, verification outcome, actual expected Gates and learning
-objective. The metadata documents expected behaviour but cannot set runtime outcomes.
-
-> **Warning:** The autonomy profiles and eligibility criteria are illustrative. Production
-> progression between profiles requires approved criteria, historical performance,
-> calibration, monitoring, sampling and AIRO governance.
-
-## Project map
+## Repository structure
 
 ```text
 app/
-  graph.py                 LangGraph nodes, routes, loops and interrupts
-  coordinator.py           Case service, resume validation and audit boundary
-  agent/                    Policy, router, registry, verifier, interrupts and invalidation
-  engines/                 Materiality, 2LoD and autonomy rules
-  llm/                     Shared prompts, provider registry, adapters and deterministic mock
-  services/evidence.py     Non-LLM evidence checks and targeted questions
-  services/calibration.py  Backtesting and sensitivity diagnostics
-  services/review_pack.py  Structured AIRO review pack
-  database.py              SQLite case and audit store
-  static/                  Single-page demonstration UI
-tests/                     Engine, governance, calibration and workflow tests
-docs/                      Architecture, development guide and demo script
+  agent/             Policy supervisor, router, tool registry, verifier, Gates, invalidation
+  engines/           Illustrative autonomy, materiality and 2LoD deterministic rules
+  llm/               Shared prompts, provider registry, mock/Ollama/OpenAI adapters
+  services/          Evidence checks, review-pack generation, calibration diagnostics
+  static/            Packaged HTML, CSS and JavaScript demonstration UI
+  coordinator.py     Case service, persistence/checkpoint and audit boundary
+  database.py        Local SQLite Case and audit repository
+  graph.py           One LangGraph StateGraph and all governed transitions
+  main.py            FastAPI routes and static UI serving
+  samples.py         Fifteen typed governed demonstration fixtures
+  schemas.py         Pydantic API, action, tool and decision contracts
+  state.py           Authoritative graph-state schema
+  versions.py        Runtime, policy, rule, prompt, Gate and tool versions
+data/.gitkeep         Empty runtime-data directory; databases are generated and ignored
+docs/                 Architecture, provider, development, demo and release documentation
+tests/                Deterministic engines, governance, journeys, UI and release contracts
+.env.example          Placeholder-only local configuration template
+pyproject.toml        Package, dependency, pytest and Ruff configuration
 ```
 
-## Tests
+## Prerequisites
 
-```bash
-pytest
-ruff check app tests
+- Windows with PowerShell.
+- Python 3.11 or newer. The declared range is `>=3.11`; the release checks also pass on
+  Python 3.13.9.
+- No Ollama process, API key, network connection or pre-populated database is needed in mock
+  mode.
+- Ollama mode additionally needs Ollama and the configured local model.
+- Hosted providers additionally need explicit organisational approval, network access and a
+  protected secret.
+
+No software licence is declared. The receiving organisation must make that legal/handover
+decision; this repository does not choose one on its behalf.
+
+## Windows quick start — mock mode
+
+From the repository root:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+$env:LLM_MODE = "mock"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-There is no configured static type checker in this dependency set. Runtime contracts are
-checked with Pydantic and Python syntax/import integrity can be checked with
-`python -m compileall -q app tests`.
+Open <http://127.0.0.1:8000>. OpenAPI documentation is at
+<http://127.0.0.1:8000/docs> and health is at
+<http://127.0.0.1:8000/api/health>.
 
-Tests use deterministic or injected fake clients and require no live LLM service or API key.
+If the Windows Python launcher is unavailable, use an installed supported interpreter, for
+example `python -m venv .venv`. Selecting a VS Code interpreter does not change an already
+open terminal; reopen the terminal or activate the environment with
+`.\.venv\Scripts\Activate.ps1`. The commands above intentionally call the environment's
+Python directly and do not require activation.
 
-## Production gaps intentionally left visible
+Mock mode runs the same StateGraph, supervisor, router contract, tool registry, verifier,
+engines, checkpoints and Gates as live-provider modes. Only variable model responses are
+replaced with protected deterministic fixture behaviour.
 
-This demo is a development baseline, not a deployable control. Before production, the team
-must replace or extend it with:
+## Ollama mode
 
-- approved, version-controlled questionnaire and rule configuration;
-- SSO, role-based access, separation of duties and case-level permissions;
-- production database, encrypted evidence storage, retention and legal-hold controls;
-- malware scanning, file parsing isolation and prompt-injection defences;
-- model gateway, allow-listed models, observability, redaction and data-loss controls;
-- formally governed Confluence/SharePoint adapters with idempotency and approval scopes;
-- service monitoring, retry/dead-letter handling, backup and disaster recovery;
-- golden datasets, expert-labelled backtests, override analysis and change approval;
-- security, privacy, model-risk and operational-readiness assessment of the tool itself.
+In one terminal, install/start Ollama and prepare the configured model:
 
-Further detail is in [docs/AGENT_DESIGN.md](docs/AGENT_DESIGN.md), the
-[implementation review](docs/IMPLEMENTATION_REVIEW.md),
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/TEAM_DEVELOPMENT_GUIDE.md](docs/TEAM_DEVELOPMENT_GUIDE.md). Instructions for changing
-the selected provider or adding another model API are in the
-[LLM provider guide](docs/LLM_PROVIDER_GUIDE.md).
+```powershell
+ollama serve
+ollama pull llama3.2:3b
+```
 
-## Primary framework references
+In a second terminal from this repository:
+
+```powershell
+$env:LLM_MODE = "ollama"
+$env:OLLAMA_BASE_URL = "http://localhost:11434"
+$env:OLLAMA_MODEL = "llama3.2:3b"
+$env:ALLOW_MOCK_FALLBACK = "true"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+If Ollama or the model is unavailable, health is `degraded`. With fallback enabled, bounded
+LLM calls use the deterministic mock and record the selected runtime; startup and mock-mode
+operation do not depend on Ollama.
+
+## OpenAI and other LLM APIs
+
+The OpenAI adapter uses the Responses API with typed Pydantic output and requests
+`store=false` by default. Supply secrets through protected environment configuration—not a
+committed file:
+
+```powershell
+$env:LLM_MODE = "openai"
+$env:OPENAI_API_KEY = "replace-through-an-approved-secret-store"
+$env:OPENAI_MODEL = "your-approved-model-id"
+$env:OPENAI_STORE_RESPONSES = "false"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+`store=false` is only a request option, not a complete privacy or data-governance control.
+Use synthetic data until retention, residency, training use, access, redaction and contract
+requirements are approved. See the [LLM provider guide](docs/LLM_PROVIDER_GUIDE.md) for
+OpenAI-compatible endpoints and the tested extension contract for a different API.
+
+## Demonstrations
+
+Use mock mode for repeatable presentations. The UI contains 15 samples across Core workflow,
+Progressive Automation and Advanced controls.
+
+Recommended short journey:
+
+1. Run **Human Governed — Policy RAG Evidence Conflict** to show routing, verification,
+   Gate 1 and selective replanning.
+2. Compare the conditional, exception-based sampled and eligible straight-through cases.
+3. Run **Advanced — Invalid Tool Proposal** to show rejection before tool execution.
+4. Optionally finish with prompt-injection handling or dependency-aware invalidation.
+
+Exact actions and expected outcomes for every sample are in the
+[Demonstration script](docs/DEMO_SCRIPT.md) and [Sample coverage](docs/SAMPLE_COVERAGE.md).
+
+## Progressive Automation profiles
+
+| Profile | Illustrative demo behaviour |
+|---|---|
+| `human_governed` | Every reached decision Gate is mandatory; evidence problems always activate mandatory Gate 1. |
+| `conditional_review` | Clean preparation may skip, but final triage and local publication approval remain human-owned. |
+| `exception_based` | Eligible low-risk fixtures may skip specified review unless exceptions, ineligibility, elevation or deterministic sampling requires AIRO. |
+| `straight_through_demo` | One tightly bounded eligible fixture may auto-confirm later demo decisions and publish a local record only. |
+
+`straight_through` is accepted only as a compatibility alias for stored demonstration data.
+New fixtures use `straight_through_demo`. Normal `POST /api/cases` input has no profile field
+and is always assigned `human_governed`; an LLM cannot upgrade it.
+
+## Human Gates
+
+| Gate | AIRO decision |
+|---|---|
+| Evidence request | Add evidence/amend answers, knowingly proceed with a recorded gap, or cancel |
+| Material input confirmation | Confirm facts, edit answers, return for evidence, or cancel |
+| Exception resolution | Proceed with rationale, edit, return for evidence, or cancel |
+| Final triage | Confirm or override materiality/2LoD proposals, return for review, or cancel |
+| Publication | Approve the local record, save a draft, or cancel |
+
+SQLite Case snapshots and LangGraph checkpoints are created automatically under `data/`.
+They permit durable resume with the same Case/thread ID, but are local runtime artifacts and
+must not be delivered or committed.
+
+## API surface
+
+| Method/path | Purpose |
+|---|---|
+| `GET /api/health` | Provider-neutral configured/selected runtime health |
+| `GET /api/samples` | Typed demonstration catalogue |
+| `POST /api/samples/{sample_name}` | Create a governed demonstration fixture |
+| `POST /api/cases` | Create a normal human-governed Case |
+| `GET /api/cases` | List persisted local Cases |
+| `GET /api/cases/{case_id}` | Read a Case, pending Gate and audit history |
+| `POST /api/cases/{case_id}/start` | Start a draft Case |
+| `POST /api/cases/{case_id}/resume` | Submit an allowed AIRO Gate decision |
+| `POST /api/calibration/backtest` | Run diagnostics on caller-supplied labelled cases |
+| `GET /api/calibration/demo-backtest` | Run the three synthetic historical examples |
+| `POST /api/calibration/sensitivity` | Run one-answer-at-a-time illustrative sensitivity |
+
+The browser UI uses every Case/sample/health route and the demo calibration routes. The
+caller-supplied backtest endpoint is intentionally API-only.
+
+## Tests and quality checks
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m ruff format --check .
+.\.venv\Scripts\python.exe -m compileall -q app tests
+.\.venv\Scripts\python.exe -m pip check
+```
+
+Tests use mock or injected fake clients and require no live model or key. No static type
+checker is configured, so no type-check command is claimed. Pydantic validates runtime
+contracts and Ruff/compileall cover configured static quality checks.
+
+## Documentation map
+
+- [Architecture](docs/ARCHITECTURE.md) — current StateGraph, persistence and module ownership.
+- [Agent design](docs/AGENT_DESIGN.md) — Code Agency classification and authority boundary.
+- [Team development guide](docs/TEAM_DEVELOPMENT_GUIDE.md) — safe change procedures.
+- [LLM provider guide](docs/LLM_PROVIDER_GUIDE.md) — switch or add model APIs.
+- [Demonstration script](docs/DEMO_SCRIPT.md) — presenter steps for every active sample.
+- [Sample coverage](docs/SAMPLE_COVERAGE.md) — expected feature/Gate matrix.
+- [Detailed StateGraph design](docs/AGENTIC_STATEGRAPH_AND_PROGRESSIVE_AUTOMATION.md) — expanded current flow.
+- [Implementation history](docs/IMPLEMENTATION_REVIEW.md) — prior refactor record, not current release results.
+- [Release-readiness report](docs/RELEASE_READINESS_REPORT.md) — baseline, changes and verification.
+- [Original target reference](AIRO_Agentic_Case_Coordinator_Reference_Design.md) — future/historical design source, not implemented scope.
+
+## Remaining production limitations
+
+This is a local demonstration, not a production control. It does not provide enterprise
+identity/authorisation, separation of duties, encrypted production evidence storage,
+retention/legal hold, file malware isolation, enterprise model gateway, DLP, production
+telemetry, backup/disaster recovery, approved rule configuration or real external writes.
+Submitted evidence is treated as untrusted data, but heuristic prompt-injection detection is
+not a complete content-security control.
+
+Production progression requires accountable policy owners, approved rules and data sources,
+expert-labelled evaluations, false-low tolerances, sampling, monitoring, change approval and
+a tested rollback to `human_governed`. Calibration diagnostics never automatically update
+rules, prompts, profiles or thresholds.
+
+## Framework references
 
 - [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
 - [LangGraph interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)

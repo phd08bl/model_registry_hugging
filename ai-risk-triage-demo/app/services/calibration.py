@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.engines.materiality import BAND_ORDER, calculate_materiality
+from app.engines.materiality import BAND_ORDER, DEMO_RULE_VERSION, calculate_materiality
 from app.schemas import HistoricalAssessment, Questionnaire
 
 SENSITIVITY_FIELDS = (
@@ -60,7 +60,7 @@ def run_backtest(cases: list[HistoricalAssessment]) -> dict[str, Any]:
 
     total = len(cases)
     return {
-        "rule_version": "demo-materiality-1.0",
+        "rule_version": DEMO_RULE_VERSION,
         "dataset_size": total,
         "metrics": {
             "exact_match_rate": round(exact / total, 3),

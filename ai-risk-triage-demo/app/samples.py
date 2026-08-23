@@ -106,29 +106,6 @@ _BASE_FIXTURES: dict[str, DemoCaseFixture] = {
             "Pattern status: the tool follows an approved internal summarisation pattern."
         ),
     ),
-    "external_supplier_gap": DemoCaseFixture(
-        demo_pattern_id="external_supplier_gap",
-        autonomy_profile="human_governed",
-        questionnaire=Questionnaire(
-            use_case_name="Human Governed — External Supplier Evidence Gap",
-            purpose=(
-                "Demonstrate deterministic escalation when an externally supplied model "
-                "has no supporting contract or assurance evidence."
-            ),
-            business_owner="Procurement Operations",
-            users="Authorised internal colleagues",
-            approved_pattern=False,
-            external_model_or_supplier=True,
-            human_review_of_outputs=True,
-            financial_impact="low",
-        ),
-        evidence_text=(
-            "Purpose and users: the assistant helps authorised colleagues categorise "
-            "non-sensitive purchasing queries.\n"
-            "Review control: a colleague reviews each output before use.\n"
-            "No supporting technology assurance documents were submitted."
-        ),
-    ),
     "agentic_ai_autonomy": DemoCaseFixture(
         demo_pattern_id="agentic_ai_autonomy",
         autonomy_profile="human_governed",
@@ -292,49 +269,11 @@ _BASE_FIXTURES: dict[str, DemoCaseFixture] = {
             "Pattern status: the use case is complete but is not an approved pattern."
         ),
     ),
-    "exception_based_elevated": DemoCaseFixture(
-        demo_pattern_id="exception_based_elevated",
-        autonomy_profile="exception_based",
-        questionnaire=Questionnaire(
-            use_case_name="Exception Based — Elevated Risk Requires Review",
-            purpose=(
-                "Demonstrate how elevated materiality restores later AIRO review even "
-                "when evidence is complete and the pattern is approved."
-            ),
-            business_owner="Operational Resilience",
-            users="Authorised internal incident-management colleagues",
-            approved_pattern=True,
-            personal_data=False,
-            sensitive_data=False,
-            external_model_or_supplier=False,
-            customer_facing=False,
-            customer_decisioning=False,
-            autonomous_actions=False,
-            critical_process_dependency=True,
-            human_review_of_outputs=True,
-            financial_impact="medium",
-        ),
-        evidence_text=(
-            "Purpose and users: the approved assistant summarises operational incidents for "
-            "authorised internal incident-management colleagues only.\n"
-            "Data boundary: no personal or sensitive data is used.\n"
-            "Technology boundary: no external model or supplier is used.\n"
-            "Customer boundary: it is not customer-facing and does not support customer "
-            "decisions.\n"
-            "Action boundary: it cannot take autonomous actions.\n"
-            "Criticality: the assistant is a critical-process dependency for coordinated "
-            "incident response.\n"
-            "Continuity and recovery: tested resilience, recovery and manual fallback "
-            "procedures keep incident coordination available during disruption.\n"
-            "Review control: an incident manager reviews every output before operational use.\n"
-            "Pattern status: it follows an approved internal incident-summary pattern."
-        ),
-    ),
     "straight_through_eligible": DemoCaseFixture(
         demo_pattern_id="straight_through_eligible",
-        autonomy_profile="straight_through",
+        autonomy_profile="straight_through_demo",
         questionnaire=Questionnaire(
-            use_case_name="Straight Through — Eligible Internal Summary",
+            use_case_name="Straight Through Demo — Eligible Internal Summary",
             purpose=(
                 "Demonstrate local-demo automatic completion after initial input "
                 "governance for an eligible low-risk case."
@@ -368,9 +307,9 @@ _BASE_FIXTURES: dict[str, DemoCaseFixture] = {
     ),
     "straight_through_ineligible": DemoCaseFixture(
         demo_pattern_id="straight_through_ineligible",
-        autonomy_profile="straight_through",
+        autonomy_profile="straight_through_demo",
         questionnaire=Questionnaire(
-            use_case_name="Straight Through — Ineligible Autonomous Case",
+            use_case_name="Straight Through Attempt — Ineligible Autonomous Customer Case",
             purpose=(
                 "Demonstrate safe fallback to mandatory human review for an elevated case "
                 "outside the approved low-risk boundary."

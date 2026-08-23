@@ -2,17 +2,29 @@
 
 ## Reference Design for Team Development
 
-**Status:** Target reference design for discussion and phased delivery  
+**Status:** Retained historical/target reference for discussion; not the current implementation specification  
 **Primary user:** AI Risk Oversight Team (AIRO)  
 **Governance framework:** MRO Risk-Based Progressive Automation and Oversight Framework  
 **Proposed orchestration approach:** One stateful, human-governed Case Coordinator implemented using LangGraph StateGraph  
 **Important:** This document describes a target design. PwC scoring, risk-tier mapping, 2LoD triggers and decision authorities remain subject to formal agreement and calibration.
 
+> **Delivery boundary:** use [README.md](README.md),
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+> [docs/AGENT_DESIGN.md](docs/AGENT_DESIGN.md) as the authoritative description of the
+> repository. This reference contains future concepts—including React/TypeScript, Cortex,
+> enterprise identity/storage/monitoring, production rule services and external
+> Confluence/SharePoint/Jira-style integrations—that are **not implemented**. The delivered
+> UI is packaged HTML/CSS/JavaScript; persistence is local SQLite; publication is a local
+> `local-demo://` record; mock, Ollama and OpenAI-style adapters are the implemented LLM
+> modes. All current rule values and autonomy patterns remain illustrative demo policy.
+
 ---
 
 ## 1. Executive Summary
 
-The PwC MVP is currently a fixed workflow tool. AIRO users move through predefined steps to ingest a questionnaire and evidence, confirm completeness, run materiality and 2LoD logic, review results and produce an output pack. Where information is missing or inconsistent, the user must identify the issue and manually return to the relevant step.
+The source design assumed a fixed-workflow PwC MVP in which AIRO users moved through
+predefined steps. The repository has since implemented the bounded Case Coordinator
+described by the current documentation; this paragraph remains historical problem context.
 
 The proposed next version is an **AIRO Human-Governed Agentic Case Coordinator**. It does not replace AIRO judgement. It coordinates each risk-triage case by maintaining state, planning permitted tasks, invoking approved tools and deterministic engines, managing evidence loops and exceptions, and pausing at mandatory AIRO decision gates.
 

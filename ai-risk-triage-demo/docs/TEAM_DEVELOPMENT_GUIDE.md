@@ -1,126 +1,205 @@
 # Team development guide
 
-## 1. Agree governance before changing code
+This guide explains how to extend the current AIRO Case Coordinator without weakening its
+governance boundary. All current rules and patterns are illustrative demo policy.
 
-Create an accountable decision register covering:
+## Change principles
 
-- questionnaire owner and version;
-- materiality rule owner, thresholds, dealbreakers and minimum routes;
-- 2LoD trigger owners and required evidence;
-- decisions reserved to AIRO or specialist teams;
-- autonomy eligibility, exclusions, sampling and rollback authority;
-- LLM-permitted tasks, prohibited tasks and approved models;
-- publication authority and target-system owners.
+1. Keep one Coordinator and one authoritative Case state.
+2. Put repeatable risk or permission decisions in deterministic, testable code—not prompts.
+3. Let the LLM recommend evidence work only from supplied allowlists.
+4. Invoke tools only through typed, versioned registry contracts.
+5. Verify every result before it changes authoritative state.
+6. Reserve material judgement, overrides and formal approval to AIRO Gates.
+7. Fail unknown states, profiles, actions, tools and permissions closed.
+8. Record versions and preserve prior results when dependencies change.
+9. Label unapproved materiality, 2LoD, pattern and autonomy rules as illustrative.
+10. Do not describe a future adapter or enterprise control as implemented.
 
-Do not encode workshop assumptions as policy. Keep unapproved rules labelled as demo or
-draft configuration.
+Before encoding a real rule, identify its accountable owner, approval, effective date,
+version, evidence requirements, exception handling, testing and rollback decision.
 
-## 2. Stabilise deterministic engines first
+## Add a tool
 
-Move real rules from Python into reviewed, signed and effective-dated configuration only
-after the rulebook is agreed. Validate configuration at startup. Record the exact version in
-every case and review pack. Add golden tests for boundaries, dealbreakers and overlapping
-2LoD triggers.
+Use this only for a capability the Coordinator actually invokes.
 
-## 3. Build an evidence contract
+1. Add a narrow `ToolIdentifier` in `app/schemas.py`.
+2. Add or reuse a Pydantic input/output model in `app/agent/tools.py`; forbid unexpected
+   fields where the boundary requires it.
+3. Add a `ToolContract` with purpose, version, permission, risk, timeout, retries,
+   idempotency, profiles and implementation status.
+4. Register one handler in `ToolRegistry._handlers`.
+5. If the LLM router may select it, also follow **Add a router action** below.
+6. Add deterministic verifier checks and explicit semantic limitations.
+7. Add tests for unknown ID, version, schema, permission, timeout/retry, idempotency,
+   sanitized failure and result verification.
+8. Update `docs/ARCHITECTURE.md` and relevant sample documentation.
 
-For each answer define:
+Do not add placeholder contracts for unimplemented future integrations. Describe them as
+future considerations until an active, governed call path exists.
 
-- authoritative source types;
-- minimum evidence and acceptable freshness;
-- extraction schema and confidence treatment;
-- deterministic consistency checks;
-- who may confirm or amend the structured fact.
+## Add a router action
 
-LLM output is proposed evidence metadata, not a confirmed fact. Low confidence or material
-conflicts should route to AIRO.
+1. Add an evidence-preparation-only `ActionType` in `app/schemas.py`. Decision actions such
+   as approval, materiality selection, Gate bypass or profile change are prohibited.
+2. Map it to exactly one active `ToolIdentifier` in `ACTION_TO_TOOL`.
+3. Define its trusted input keys in `ACTION_INPUTS`; never execute model-authored payloads.
+4. Add deterministic readiness/prerequisite logic to `plan_evidence_actions()` and/or
+   `PolicySupervisor._planned_actions()`.
+5. Ensure the policy provides both the action and tool allowlists and the router binds the
+   approved contract before validation.
+6. Define how successful, advisory, rejected and failed results update Case state.
+7. Include budget and loop termination behavior.
+8. Test deterministic single-action selection, multi-action LLM selection, mismatched tool,
+   non-allowlisted action, low confidence, provider failure and exhausted budget.
 
-When adding or changing an LLM provider, implement the `StructuredLLMClient` transport
-contract, reuse `app/llm/prompts.py`, register an explicit provider builder, preserve typed
-Pydantic outputs, and add injected-client contract tests. Do not add provider branches to the
-graph or tools. Follow [`LLM_PROVIDER_GUIDE.md`](LLM_PROVIDER_GUIDE.md).
+The graph and provider adapters must not gain provider-specific action branches.
 
-## 4. Treat orchestration as a state machine
+## Add a governed pattern
 
-Each node should have one purpose and explicit inputs/outputs. Keep external side effects out
-of interrupting nodes because a resumed LangGraph node restarts. Make integration calls
-idempotent and record external references. Unknown states and policies must fail to a human
-gate.
+1. Obtain an accountable, versioned policy decision outside the LLM.
+2. Add exactly one pattern ID and maximum profile to `DEMO_PATTERN_MAXIMUMS`.
+3. Add a matching typed `DemonstrationCase` in `app/samples.py`.
+4. Keep expected metadata descriptive; the graph must independently produce the result.
+5. Use `DemonstrationControls` only for a protected repeatable lesson such as stable
+   sampling, low confidence, invalid tool proposal or reduced budget.
+6. Test assignment, downgrade, eligibility, sampling, all expected Gates and completion.
+7. Update `docs/DEMO_SCRIPT.md` and `docs/SAMPLE_COVERAGE.md`.
 
-For a new evidence capability, change all four explicit control layers: add a typed action,
-add a versioned registry contract and handler, allow it in the deterministic supervisor only
-when its prerequisites hold, and add verifier tests. Do not let an adapter call another tool
-or write case state directly.
+The policy registry and sample catalogue must have identical IDs. Never add a profile field
+to the normal `CreateCaseRequest` or infer a profile from a user-editable title.
 
-For a new Progressive Automation pattern, register a governed pattern ID and maximum profile,
-then add a demonstration fixture and downgrade/Gate/sampling tests. Never expose the profile
-as a normal case-creator choice and never let an LLM promote a case or population.
+## Change a deterministic rule
 
-For a new demonstration, add one typed `DemonstrationCase` in `app/samples.py`. Keep its
-expected metadata descriptive: runtime policy, engines and tools must independently produce
-the tested result. Use a protected fixture identifier or `DemonstrationControls` only for a
-repeatable technical lesson such as sampling, low confidence or budget exhaustion; never
-match a complete title and never add the controls to `CreateCaseRequest`. Update
-`docs/SAMPLE_COVERAGE.md` and add a parameterised transition test that asserts typed actions,
-statuses and Gates rather than explanatory wording.
+Materiality, 2LoD and autonomy rules are separate control surfaces.
 
-When a desired demonstration takes a different route, inspect the actual supervisor and
-deterministic rules first. Correct the fixture if its expectation is wrong. Correct core code
-only for a real governance defect, and add a regression test; do not weaken a Gate or change a
-risk rule to make a card look convenient.
+1. Confirm the rule owner, approval status and whether the change is demo-only or approved.
+2. Change the smallest pure function in `app/engines/` or deterministic policy condition.
+3. Increment the relevant constant in `app/versions.py`.
+4. Add boundary tests, dealbreaker/minimum-route tests and overlapping-trigger tests.
+5. Re-run every active sample; update an expected outcome only when the new approved rule
+   genuinely changes it.
+6. Run backtesting and sensitivity against suitable labelled cases.
+7. Review false-low effects first and record the accountable change decision.
+8. Update every document that explains the rule, version or journey.
 
-## 5. Validate the autonomy ladder
+Calibration output is evidence for human rule owners. It must never rewrite rules, versions
+or thresholds automatically.
 
-Recommended rollout:
+## Add a Gate
 
-1. **Shadow:** run proposals beside the current manual process.
-2. **Human governed:** AIRO confirms every material point and decision.
-3. **Conditional:** automate preparation, retain mandatory decisions.
-4. **Exception based:** apply only to approved low-risk populations with sampling.
-5. **Straight through:** consider only after approved evidence, limits and rollback.
+1. Define the reserved human decision and accountable authority.
+2. Add a deterministic Gate requirement in the autonomy policy; unknown profiles must still
+   require review.
+3. Build the payload through `AIROInterruptController`, including evidence, rule rationale,
+   actions, effects and rationale requirements.
+4. Add the `interrupt()` node and explicit `Command` transitions in `app/graph.py`.
+5. Keep all side effects outside the interrupting node because it restarts on resume.
+6. Add status/current-Gate mapping in `CaseCoordinator._save_snapshot()`.
+7. Update the UI action-specific fields and help text without exposing irrelevant inputs.
+8. Test valid/invalid actions, required rationale, restart/resume, cancel/return loops,
+   profile requirements and fail-closed behavior.
+9. Update both Mermaid diagrams and every sample affected by the Gate.
 
-Promotion criteria should include false-low rate, override rate, evidence completeness,
-process time, incident rate and sampling results. Set a kill switch that returns the population
-to human-governed mode.
+## Update Case state
 
-## 6. Calibration and monitoring
+1. Add the key and type to `TriageState`.
+2. Identify the sole node/service that owns each write and all readers in API/UI/tests/docs.
+3. Decide whether the value is submitted, advisory, confirmed, authoritative, audit history
+   or local output; do not blur those categories.
+4. Add initialization in `CaseCoordinator` when a safe explicit default is required.
+5. Add dependency handling to `invalidation_update()` if the value can become stale.
+6. Ensure old values are archived rather than overwritten when governance evidence matters.
+7. Update review-pack/version output only if the field belongs there.
+8. Add creation, update, persistence, restart and UI-display tests as applicable.
 
-Use expert-labelled historical cases before launch. Analyse:
+Compatibility fields may remain only while an active caller uses them. Record their purpose
+and remove them once repository-wide searches show no runtime, test, UI or documentation
+dependency.
 
-- exact-band agreement and distance from expert assessment;
-- false-low outcomes by risk factor and use-case pattern;
-- false-high outcomes and avoidable escalations;
-- threshold sensitivity and question influence;
-- dealbreaker and minimum-route coverage;
-- 2LoD trigger precision/recall where labels exist;
-- human overrides, recurring exceptions and evidence defects.
+## Change or add an LLM provider
 
-The Calibration tab and API demonstrate this separation. A calibration service produces
-diagnostics; rule owners decide changes through controlled approval. Never allow online model
-learning to rewrite materiality or routing rules.
+Follow the [LLM provider guide](LLM_PROVIDER_GUIDE.md). In summary:
 
-## 7. Production backlog
+1. Add narrow settings and use `SecretStr` for credentials.
+2. Implement `StructuredLLMClient` or the full `LLMClient` contract.
+3. Reuse `app/llm/prompts.py` and existing Pydantic result models.
+4. Translate only expected provider failures to sanitized `LLMRuntimeError`.
+5. Register one explicit provider builder; unknown modes must fail at startup.
+6. Add fake-client tests with no key or network dependency.
+7. Confirm provider metadata contains no secret, prompt, evidence or internal error body.
 
-Suggested workstreams:
+Changing transport never changes LLM authority.
 
-| Workstream | Initial deliverable |
-|---|---|
-| Product/governance | Decision register, RACI, scope and success measures |
-| Risk methodology | Versioned questionnaire and deterministic rule configuration |
-| Evidence | File ingestion, provenance, redaction and evidence-quality policy |
-| Orchestration | Production checkpointer, queues, retries and recovery tests |
-| Human experience | Accessible review workspace, rationale standards and SLA views |
-| Integrations | Governed Confluence/SharePoint adapters after approval gates |
-| Assurance | Threat model, privacy assessment, model evaluation and control testing |
-| Intelligence | Override/exception taxonomy, calibration dashboards and trend monitoring |
+## Update dependencies or packaging
 
-## 8. Definition of done for a production release
+1. Prove the dependency is imported or required by an active runtime/package path.
+2. Put runtime libraries in `project.dependencies` and test/development tools in the `dev`
+   extra.
+3. Avoid adding a dependency for a small standard-library task.
+4. Update the declared minimum only with compatibility evidence.
+5. Install from `pyproject.toml` in a new temporary environment.
+6. Run `pip check`, tests and quality checks.
+7. Build a wheel and verify `app/static/index.html`, CSS and JavaScript are included.
+8. Update Windows commands and provider instructions if startup changes.
 
-- The same input and rule version produce reproducible deterministic results.
-- Every material output has source evidence or an explicit gap.
-- Every skipped gate has a recorded deterministic policy explanation.
-- Reserved decisions cannot be bypassed through API or UI.
-- The system can restore and resume interrupted cases after restart.
-- External writes are approved, idempotent and auditable.
-- False-low and high-risk scenario tests meet approved tolerance.
-- Operations can monitor, suspend and return automation to a safer profile.
+Do not choose or add a software licence without the organisation's legal decision.
+
+## Create a sample
+
+1. Choose one learning objective not already demonstrated adequately.
+2. Use synthetic, non-sensitive questionnaire/evidence text.
+3. Add a governed pattern entry and typed `DemonstrationCase` with matching ID.
+4. State the starting condition, assigned/maximum profile, expected actions/tools,
+   verification, Gates, materiality/2LoD proposals and user steps.
+5. Confirm expected metadata cannot force graph behavior.
+6. Add it to parameterized policy, risk and full mock-journey tests.
+7. Update both sample documents and the UI count if stated.
+
+## Add tests
+
+Prefer assertions on contracts and behavior over exact explanatory prose. For behavior
+changes, test the failure path before or with the fix.
+
+The minimum suite for governed changes includes:
+
+- valid and invalid schema input;
+- deterministic rule boundaries;
+- policy allow/deny and unknown-state behavior;
+- action/tool matching and no invocation after rejection;
+- verifier accepted/advisory/escalated outcomes;
+- prompt-injection and citation failure;
+- evidence loop and selective invalidation;
+- every affected Gate, interrupt and resume;
+- budget/recursion termination; and
+- mock operation without a live provider.
+
+Run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m ruff format --check .
+.\.venv\Scripts\python.exe -m compileall -q app tests
+.\.venv\Scripts\python.exe -m pip check
+```
+
+No type checker is currently configured; do not claim or add one solely for a routine change.
+
+## Preserve governance controls during review
+
+Before handover, confirm:
+
+- normal users cannot select or upgrade profiles;
+- the LLM cannot determine materiality, 2LoD, Gate bypass, rules or approval;
+- every executed tool is registered, typed, allowlisted and verified;
+- evidence is treated as untrusted and citations are checked;
+- material changes invalidate dependent approvals/results;
+- AIRO decisions and autonomy evaluations are auditable;
+- publication remains a local demonstration with no enterprise credentials;
+- all rules and patterns remain visibly illustrative; and
+- mock mode is reproducible without Ollama or hosted network access.
+
+For production, separately establish SSO/RBAC, separation of duties, approved evidence
+storage, model gateway, security controls, monitoring, recovery, policy ownership, evaluation
+tolerances and external-integration governance.
