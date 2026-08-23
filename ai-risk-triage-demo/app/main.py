@@ -42,11 +42,20 @@ def index() -> FileResponse:
 @app.get("/api/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     available, message = coordinator.health()
+    metadata = llm_client.runtime_metadata()
+    primary = metadata.get("primary", metadata)
+    provider = str(primary.get("runtime", settings.llm_mode))
+    model = str(primary.get("model") or "deterministic demonstration runtime")
     return HealthResponse(
         status="ok" if available else "degraded",
         llm_mode=settings.llm_mode,
-        ollama_available=available and "Ollama" in message,
-        ollama_model=settings.ollama_model,
+        provider=provider,
+        model=model,
+        available=available,
+        selected_runtime=str(
+            metadata.get("selected_runtime", metadata.get("runtime", provider))
+        ),
+        fallback_enabled=bool(metadata.get("fallback_enabled", False)),
         message=message,
     )
 

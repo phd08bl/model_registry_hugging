@@ -110,13 +110,19 @@ The LLM extracts:
 - risk signals; and
 - references to evidence line numbers.
 
-The Ollama adapter in [`app/llm/ollama.py`](../app/llm/ollama.py) requests structured Pydantic JSON, uses temperature zero, treats submitted evidence as untrusted source material, and instructs the model not to make final materiality or approval decisions.
+The adapters in [`app/llm/`](../app/llm/) share governed prompt builders and request typed
+Pydantic output. The Ollama transport uses temperature zero; hosted transports send only
+supported parameters. All providers treat submitted evidence as untrusted source material
+and instruct the model not to make final materiality or approval decisions.
 
-If configured, [`app/llm/factory.py`](../app/llm/factory.py) can fall back from Ollama to the governed `MockLLMClient`. The selected runtime and fallback information are recorded in the case state.
+[`app/llm/factory.py`](../app/llm/factory.py) selects providers from an explicit registry and
+can fall back from any live provider to the governed `MockLLMClient`. The configured primary,
+selected runtime and fallback information are recorded in the case state.
 
 ### Deterministic Gate 1 routing
 
-Ollama's possible gaps and inconsistencies remain available as advisory evidence analysis. They do not directly force Gate 1.
+An LLM provider's possible gaps and inconsistencies remain available as advisory evidence
+analysis. They do not directly force Gate 1.
 
 Only `deterministic_evidence_checks()` in [`app/services/evidence.py`](../app/services/evidence.py), invoked through the approved Tool Registry, controls Gate 1 routing. It checks for:
 
@@ -212,7 +218,9 @@ The graph itself creates this deterministic, rule-supported exception when the p
 
 > The low proposed band is not supported by an explicitly approved pattern.
 
-Only existing exceptions, confirmed inconsistencies, and transparent rule-supported exceptions are used for autonomy routing. This keeps demonstration behaviour reproducible with both MockLLM and Ollama.
+Only existing exceptions, confirmed inconsistencies, and transparent rule-supported
+exceptions are used for autonomy routing. This keeps demonstration behaviour reproducible
+with the deterministic mock and across live LLM providers.
 
 ## Review pack and final decision
 

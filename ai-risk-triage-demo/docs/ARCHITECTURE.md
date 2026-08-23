@@ -65,9 +65,10 @@ The `case_id` is also the LangGraph `thread_id`. SQLite checkpoints provide dura
 state; the application database provides an operational queue and append-only demonstration
 audit events.
 
-## Boundary of the Ollama capability
+## Boundary of the pluggable LLM capability
 
-Ollama receives line-numbered evidence and schema-constrained prompts. It may:
+The selected Ollama, OpenAI, OpenAI-compatible or mock adapter receives the same bounded
+prompt inputs and typed output contract. A live provider may:
 
 - extract supported facts with line references;
 - identify possible gaps and inconsistencies;
@@ -82,9 +83,17 @@ It may not:
 - approve, override or publish a formal outcome;
 - edit rules or learn from decisions online.
 
-The adapter treats submitted evidence as untrusted data, uses structured JSON outputs and
-sets temperature to zero. Pydantic validates every response. Production still requires a
-model gateway, content controls and adversarial evaluation.
+Shared prompt builders treat submitted evidence as untrusted data, and
+`StructuredLLMClient` applies those prompts consistently to all structured providers.
+Provider adapters request schema-constrained output and Pydantic validates every response.
+Ollama sets temperature to zero; hosted adapters use only parameters supported by their
+configured model. Production still requires a model gateway, content controls and
+adversarial evaluation.
+
+Provider selection is an explicit allowlist in `app/llm/factory.py`. Unknown modes fail at
+startup rather than silently selecting another provider. The generic fallback wrapper records
+both the configured primary and the runtime actually used. See
+[`LLM_PROVIDER_GUIDE.md`](LLM_PROVIDER_GUIDE.md) for the extension contract.
 
 ## Why a Coordinator is better than a fixed wizard
 

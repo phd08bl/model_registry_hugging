@@ -2,8 +2,9 @@
 
 A runnable Python demonstration of an AI Risk Triage tool for an AI Risk Oversight Team
 (AIRO). It uses a LangGraph `StateGraph` to coordinate a persistent case, deterministic
-materiality and 2LoD routing engines, bounded Ollama capabilities, and mandatory or
-risk-based human decision gates.
+materiality and 2LoD routing engines, pluggable bounded LLM providers, and mandatory or
+risk-based human decision gates. Ollama, OpenAI, OpenAI-compatible endpoints and a
+deterministic mock are supported through one provider-neutral contract.
 
 > **Important:** all questionnaire fields, scores, thresholds, dealbreakers, minimum-route
 > rules, 2LoD mappings and autonomy policies in this repository are illustrative. They are
@@ -14,8 +15,8 @@ risk-based human decision gates.
 - The user works from a case queue rather than manually moving through rigid tabs.
 - The Coordinator chooses the next permitted step from case state and approved policy.
 - Missing or conflicting evidence creates a task and pauses the case for AIRO.
-- Ollama extracts and challenges evidence but cannot calculate, approve or publish a risk
-  outcome.
+- The configured LLM extracts and challenges evidence but cannot calculate, approve or
+  publish a risk outcome.
 - Materiality and 2LoD engagement are separate, transparent deterministic engines.
 - LangGraph interrupts persist the case at Human Gates; the same `thread_id` resumes after
   an AIRO decision.
@@ -35,7 +36,7 @@ risk-based human decision gates.
 flowchart TD
     U["AIRO case workspace"] --> C["StateGraph Case Coordinator"]
     C --> S["Deterministic Policy Supervisor"]
-    S --> L["Bounded Ollama/mock action router"]
+    S --> L["Bounded provider-neutral LLM action router"]
     S --> T["Approved Tool Registry"]
     T --> V["Result Verifier"]
     T --> D["Deterministic risk engines"]
@@ -52,7 +53,7 @@ The system uses four activity types:
 | Type | Responsibility | Examples in the demo |
 |---|---|---|
 | **A — Agentic coordination** | Plan, route, pause, resume and re-plan the case | `app/graph.py` |
-| **L — Bounded LLM** | Extract evidence and challenge unsupported claims | `app/llm/ollama.py` |
+| **L — Bounded LLM** | Extract evidence and challenge unsupported claims | `app/llm/` adapters |
 | **D — Deterministic** | Calculate materiality, 2LoD triggers and autonomy gates | `app/engines/` |
 | **H — Human judgement** | Confirm facts, resolve exceptions, decide triage and approve writes | LangGraph interrupts |
 
@@ -60,9 +61,10 @@ This is deliberately a **single Case Coordinator**, not a group of role-playing 
 Separate agents would add coordination and assurance complexity without improving the core
 case-management problem.
 
-## Quick start with Ollama
+## Quick start
 
-Prerequisites: Python 3.11+ and a local [Ollama](https://docs.ollama.com/) installation.
+The default provider is Ollama. Prerequisites: Python 3.11+ and a local
+[Ollama](https://docs.ollama.com/) installation.
 
 ```bash
 ollama serve
@@ -78,7 +80,23 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 Open <http://127.0.0.1:8000>. API documentation is at
 <http://127.0.0.1:8000/docs>.
 
-### Run without Ollama
+### Use OpenAI
+
+Install the project as above, choose an approved model that supports Structured Outputs,
+and provide the key through a protected environment or secret store:
+
+```bash
+LLM_MODE=openai \
+OPENAI_API_KEY=your-key \
+OPENAI_MODEL=your-approved-model-id \
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The OpenAI adapter uses the Responses API with typed Pydantic output and requests
+`store=false` by default. See the [LLM provider guide](docs/LLM_PROVIDER_GUIDE.md) for
+OpenAI-compatible endpoints and custom-provider registration.
+
+### Run without a live LLM
 
 The deterministic mock is provided for automated tests and architecture demonstrations:
 
@@ -87,15 +105,15 @@ LLM_MODE=mock uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Mock mode runs the same supervisor, router contracts, registry, verifier, StateGraph,
-deterministic engines, SQLite checkpoints and AIRO interrupts as Ollama mode. Only the
-variable LLM responses are replaced by protected, repeatable demonstration responses. The
-UI labels this as `MOCK · deterministic demonstration runtime`; it does not present the
-configured Ollama model as active. In the workflow strip, AIRO-completed Gates, deterministic
+deterministic engines, SQLite checkpoints and AIRO interrupts as live-provider modes. Only
+the variable LLM responses are replaced by protected, repeatable demonstration responses.
+The UI labels the provider and actual model/runtime; it does not present a configured live
+model as active in mock mode. In the workflow strip, AIRO-completed Gates, deterministic
 policy skips and event-driven Gates that were not triggered are shown as different states.
 
-When `LLM_MODE=ollama` and `ALLOW_MOCK_FALLBACK=true`, the UI visibly reports a degraded
-Ollama health state while governed mock fallback remains available. Each case records the
-runtime actually used.
+When a live provider is selected and `ALLOW_MOCK_FALLBACK=true`, the UI visibly reports a
+degraded primary-provider health state while governed mock fallback remains available. Each
+case records the configured primary and runtime actually used.
 
 ### Windows PowerShell
 
@@ -188,7 +206,7 @@ app/
   coordinator.py           Case service, resume validation and audit boundary
   agent/                    Policy, router, registry, verifier, interrupts and invalidation
   engines/                 Materiality, 2LoD and autonomy rules
-  llm/                     Ollama adapter, schemas and deterministic mock
+  llm/                     Shared prompts, provider registry, adapters and deterministic mock
   services/evidence.py     Non-LLM evidence checks and targeted questions
   services/calibration.py  Backtesting and sensitivity diagnostics
   services/review_pack.py  Structured AIRO review pack
@@ -209,7 +227,7 @@ There is no configured static type checker in this dependency set. Runtime contr
 checked with Pydantic and Python syntax/import integrity can be checked with
 `python -m compileall -q app tests`.
 
-Tests run with the deterministic mock and require no Ollama service.
+Tests use deterministic or injected fake clients and require no live LLM service or API key.
 
 ## Production gaps intentionally left visible
 
@@ -229,7 +247,9 @@ must replace or extend it with:
 Further detail is in [docs/AGENT_DESIGN.md](docs/AGENT_DESIGN.md), the
 [implementation review](docs/IMPLEMENTATION_REVIEW.md),
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/TEAM_DEVELOPMENT_GUIDE.md](docs/TEAM_DEVELOPMENT_GUIDE.md).
+[docs/TEAM_DEVELOPMENT_GUIDE.md](docs/TEAM_DEVELOPMENT_GUIDE.md). Instructions for changing
+the selected provider or adding another model API are in the
+[LLM provider guide](docs/LLM_PROVIDER_GUIDE.md).
 
 ## Primary framework references
 
@@ -238,3 +258,5 @@ Further detail is in [docs/AGENT_DESIGN.md](docs/AGENT_DESIGN.md), the
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
 - [Ollama chat API](https://docs.ollama.com/api/chat)
 - [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs)
+- [OpenAI Responses API](https://developers.openai.com/api/reference/cli/resources/responses/methods/create)
+- [OpenAI models](https://developers.openai.com/api/docs/models)

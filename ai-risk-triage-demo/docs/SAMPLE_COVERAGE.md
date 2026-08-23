@@ -49,6 +49,6 @@ invalidation. `tests/test_progressive_automation.py` covers all four effective p
 stable sampling and Gate-skip behaviour. Registry, verifier, router and policy contract tests
 remain in `tests/test_agent_governance.py`.
 
-The exact wording produced by Ollama is intentionally not asserted. Mock mode uses protected
-scenario controls stored outside normal creation input. Ollama mode uses the same Pydantic
-proposal/result boundaries, but semantic wording may vary.
+The exact wording produced by a live LLM is intentionally not asserted. Mock mode uses
+protected scenario controls stored outside normal creation input. Every live-provider mode
+uses the same Pydantic proposal/result boundaries, but semantic wording may vary.

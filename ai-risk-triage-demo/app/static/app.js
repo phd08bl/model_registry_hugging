@@ -46,10 +46,7 @@ async function loadHealth() {
   try {
     const health = await api("/api/health");
     $("health-dot").classList.add(health.status === "ok" ? "ok" : "bad");
-    const runtimeDetail = health.llm_mode === "mock"
-      ? "deterministic demonstration runtime"
-      : health.ollama_model;
-    $("health-label").textContent = `${health.llm_mode.toUpperCase()} · ${runtimeDetail}`;
+    $("health-label").textContent = `${health.provider.toUpperCase()} · ${health.model}`;
     $("health-message").textContent = health.message;
   } catch (error) {
     $("health-dot").classList.add("bad");

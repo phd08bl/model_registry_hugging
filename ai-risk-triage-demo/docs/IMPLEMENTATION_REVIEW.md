@@ -17,12 +17,12 @@ existing capability met the requested governance outcome and was deliberately re
 | Approved tool registry | Direct function and LLM calls | No | No single versioned permission/validation/idempotency boundary | Added one registry covering implemented, mocked and safe local adapters | `app/agent/tools.py` |
 | Bounded LLM router | Fixed LLM extraction/challenge calls | Partial | No structured selection among several permitted evidence actions | Added allowlist-only router with direct single-action path and safe fallback | `app/agent/router.py`, `app/llm/*` |
 | Explicit bounded loop | Linear extraction/check sequence with evidence re-entry | Partial | No observe/supervise/validate/execute/verify loop or action budget | Added named bounded-loop nodes; kept engines and Gates explicit | `app/graph.py`, `app/state.py` |
-| Result verification | Pydantic validated Ollama response schemas | Partial | No deterministic identity/version/citation/authority/injection result checks | Added `ResultVerifier` and advisory limitations | `app/agent/verifier.py`, `app/graph.py` |
+| Result verification | Pydantic validated provider response schemas | Partial | No deterministic identity/version/citation/authority/injection result checks | Added `ResultVerifier` and advisory limitations | `app/agent/verifier.py`, `app/graph.py` |
 | Structured issue/state separation | Gaps, inconsistencies and exceptions had separate lists; advisory findings shared follow-up fields | Partial | Missing typed issues, actions, budgets, trace and authoritative/superseded results | Strengthened state with typed records while retaining compatibility fields | `app/state.py`, `app/schemas.py` |
 | Selective invalidation | Answer/evidence changes reran broad evidence flow; stale results were not explicitly archived | No | Final and derived outputs could lack an explicit invalidation history | Added dependency-aware invalidation and superseded-result history | `app/agent/invalidation.py`, `app/graph.py` |
 | Progressive automation as permission | Gate sequence changed deterministically by profile | Partial | Profile was user-selected and logs lacked full eligibility/risk/sampling context | System assignment, downgrade, permission checks and richer autonomy log | `app/agent/policy.py`, `app/graph.py` |
 | Safe external actions | Publication was local only and warned about future adapters | Mostly | No executable contract proving approval and idempotency controls | Added approval-gated, idempotent local demonstration adapters; no real writes | `app/agent/tools.py` |
-| Ollama unavailable | Governed mock fallback existed and runtime was recorded | Yes | Router needed the same fallback path | Extended both LLM implementations and fallback wrapper | `app/llm/*` |
+| LLM provider unavailable | Governed mock fallback existed and runtime was recorded | Yes | Router needed the same provider-neutral fallback path | Added shared prompts, provider registry, generic fallback and typed adapters | `app/llm/*` |
 | Calibration | Backtest and sensitivity existed and never changed rules | Yes | None | Deliberately left unchanged | `app/services/calibration.py` |
 
 ## Architecture conflicts rejected
@@ -33,6 +33,5 @@ existing capability met the requested governance outcome and was deliberately re
 - Real Confluence, email or task writes were not added.
 - Existing illustrative scores, thresholds and 2LoD rules were not replaced or presented as
   PwC/MRO methodology.
-- SQLite checkpointing, FastAPI, Ollama/mock modes and human interrupt/resume semantics were
+- SQLite checkpointing, FastAPI, pluggable LLM/mock modes and human interrupt/resume semantics were
   retained.
-

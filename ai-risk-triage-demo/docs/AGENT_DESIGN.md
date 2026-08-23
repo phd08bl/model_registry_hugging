@@ -77,13 +77,15 @@ without an LLM call. When several variable actions are ready, the router receive
 allowlisted actions and tools. The LLM recommends the action; the approved action contract
 deterministically binds its executable tool, required inputs and human-review flag before
 supervisor validation. Execution derives its input payload from the same contract and never
-from model-authored fields. This prevents a locally hosted model from blocking a valid journey
+from model-authored fields. This prevents any configured model from blocking a valid journey
 by pairing an allowed action with the wrong tool or input shape. It never invokes a tool. The
 loop is bounded by maximum calls and evidence cycles; exhausted or unknown states fail closed.
 
-Ollama uses a structured `ActionProposal`. The mock implements the same contract. The existing
-fallback wrapper routes Ollama transport/structured-output failure to the governed mock and
-records the selected runtime.
+Every live provider uses the same structured `ActionProposal`; the mock implements the same
+contract deterministically. Shared prompt builders prevent authority wording from drifting
+between adapters. The provider-neutral fallback wrapper routes expected transport or
+structured-output failure to the governed mock and records the configured primary and
+selected runtime.
 
 ## Tool registry and verification
 

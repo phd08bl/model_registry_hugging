@@ -35,6 +35,11 @@ For each answer define:
 LLM output is proposed evidence metadata, not a confirmed fact. Low confidence or material
 conflicts should route to AIRO.
 
+When adding or changing an LLM provider, implement the `StructuredLLMClient` transport
+contract, reuse `app/llm/prompts.py`, register an explicit provider builder, preserve typed
+Pydantic outputs, and add injected-client contract tests. Do not add provider branches to the
+graph or tools. Follow [`LLM_PROVIDER_GUIDE.md`](LLM_PROVIDER_GUIDE.md).
+
 ## 4. Treat orchestration as a state machine
 
 Each node should have one purpose and explicit inputs/outputs. Keep external side effects out

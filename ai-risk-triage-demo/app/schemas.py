@@ -343,8 +343,11 @@ class ChallengeResult(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     llm_mode: str
-    ollama_available: bool
-    ollama_model: str
+    provider: str
+    model: str
+    available: bool
+    selected_runtime: str
+    fallback_enabled: bool
     message: str
 
 

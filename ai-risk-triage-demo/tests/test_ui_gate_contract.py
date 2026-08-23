@@ -64,8 +64,11 @@ def test_workflow_distinguishes_human_decisions_policy_skips_and_non_applicable_
     assert "const skipped = done && evaluation?.required === false" in script
 
 
-def test_mock_health_banner_does_not_claim_the_configured_ollama_model_is_running():
+def test_health_banner_uses_provider_neutral_runtime_fields():
     script = (ROOT / "app" / "static" / "app.js").read_text(encoding="utf-8")
+    html = (ROOT / "app" / "static" / "index.html").read_text(encoding="utf-8")
 
-    assert 'health.llm_mode === "mock"' in script
-    assert "deterministic demonstration runtime" in script
+    assert "health.provider.toUpperCase()" in script
+    assert "health.model" in script
+    assert "health.ollama_model" not in script
+    assert "the configured bounded LLM processes evidence" in html
