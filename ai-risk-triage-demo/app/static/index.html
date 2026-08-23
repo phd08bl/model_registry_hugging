@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AIRO Agentic Risk Triage Demo</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">MRO Risk-Based Progressive Automation</p>
+      <h1>AIRO Case Coordinator</h1>
+      <p class="subtitle">Human-governed agentic risk-triage demonstration</p>
+    </div>
+    <div class="health-panel">
+      <span id="health-dot" class="health-dot"></span>
+      <div><strong id="health-label">Checking runtime…</strong><small id="health-message"></small></div>
+    </div>
+  </header>
+
+  <div class="governance-banner">
+    <strong>Governance boundary:</strong> the Coordinator manages the case; deterministic rules calculate proposals;
+    Ollama processes evidence; AIRO owns judgement and formal approval.
+  </div>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-heading">
+        <div><p class="eyebrow">Work queue</p><h2>Cases</h2></div>
+        <button id="refresh-btn" class="icon-btn" title="Refresh">↻</button>
+      </div>
+      <p id="queue-summary" class="queue-summary">Loading Cases…</p>
+      <form id="case-lookup-form" class="case-lookup-form">
+        <label for="case-lookup">Open an older Case by ID</label>
+        <div>
+          <input id="case-lookup" autocomplete="off" placeholder="AIRO-1234ABCD" />
+          <button class="secondary" type="submit">Open</button>
+        </div>
+        <small>Opening a Case restores its saved status. A Gate decision is never submitted automatically.</small>
+      </form>
+      <div id="case-list" class="case-list"></div>
+
+      <section class="new-case-panel">
+        <h3>Create a demonstration case</h3>
+        <div id="sample-buttons" class="sample-buttons"></div>
+        <details>
+          <summary>Create custom case</summary>
+          <form id="custom-case-form" class="compact-form">
+            <label>Use-case name<input name="use_case_name" required value="Custom AI Use Case" /></label>
+            <label>Purpose<textarea name="purpose" required>Describe the intended AI use and business outcome.</textarea></label>
+            <label>Business owner<input name="business_owner" required value="Business Team" /></label>
+            <p class="hint">The system assigns custom cases to the human-governed profile. Higher profiles are available only through governed illustrative fixtures.</p>
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="approved_pattern" /> Approved pattern</label>
+              <label><input type="checkbox" name="customer_facing" /> Customer-facing</label>
+              <label><input type="checkbox" name="customer_decisioning" /> Customer decisioning</label>
+              <label><input type="checkbox" name="personal_data" /> Personal data</label>
+              <label><input type="checkbox" name="sensitive_data" /> Sensitive data</label>
+              <label><input type="checkbox" name="external_model_or_supplier" /> External supplier/model</label>
+              <label><input type="checkbox" name="autonomous_actions" /> Autonomous actions</label>
+              <label><input type="checkbox" name="critical_process_dependency" /> Critical process</label>
+              <label><input type="checkbox" name="human_review_of_outputs" checked /> Human review</label>
+            </div>
+            <label>Financial impact
+              <select name="financial_impact"><option>low</option><option>medium</option><option>high</option></select>
+            </label>
+            <label>Supporting evidence<textarea name="evidence_text" rows="5">Purpose and users are documented. Controls include human review.</textarea></label>
+            <button class="primary" type="submit">Create custom case</button>
+          </form>
+        </details>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">◎</div>
+        <h2>Select or create a case</h2>
+        <p>Use the samples to demonstrate an evidence loop, a high-risk decision, or exception-based autonomy.</p>
+      </div>
+
+      <div id="case-view" class="case-view hidden">
+        <section class="case-header card">
+          <div>
+            <p id="case-id" class="eyebrow"></p>
+            <h2 id="case-title"></h2>
+            <p id="case-purpose" class="muted"></p>
+          </div>
+          <div class="header-actions">
+            <span id="autonomy-badge" class="badge"></span>
+            <span id="status-badge" class="status-badge"></span>
+            <button id="start-btn" class="primary hidden">Start Coordinator</button>
+            <button id="continue-btn" class="secondary hidden">Continue at current Gate</button>
+          </div>
+          <div id="case-automation-context" class="automation-context"></div>
+        </section>
+
+        <section class="workflow-card card">
+          <div class="section-title"><div><p class="eyebrow">StateGraph</p><h3>Case progress</h3></div><span class="microcopy">State-driven, not tab-driven</span></div>
+          <div id="workflow-steps" class="workflow-steps"></div>
+        </section>
+
+        <div class="content-grid">
+          <section class="card coordinator-panel">
+            <div class="section-title"><div><p class="eyebrow">Agentic coordination</p><h3>Coordinator view</h3></div></div>
+            <div id="coordinator-summary"></div>
+          </section>
+
+          <section id="gate-panel" class="card gate-panel hidden">
+            <p class="eyebrow amber">Human governance</p>
+            <h3 id="gate-title"></h3>
+            <p id="gate-summary"></p>
+            <p id="gate-reason" class="muted"></p>
+            <div id="gate-context" class="context-box"></div>
+            <form id="decision-form" class="decision-form">
+              <label>AIRO action<select id="decision-action" required></select></label>
+              <p id="gate-action-help" class="warning"></p>
+              <label>Decision rationale<textarea id="decision-rationale" rows="3" placeholder="Explain the review and decision"></textarea></label>
+              <label id="additional-evidence-row" class="optional-field">Additional evidence<textarea id="additional-evidence" rows="5" placeholder="Paste evidence received through normal channels"></textarea></label>
+              <label id="answer-updates-row" class="optional-field">Questionnaire updates (JSON)<textarea id="answer-updates" rows="3" placeholder='{"personal_data": true}'></textarea></label>
+              <label id="override-band-row" class="optional-field">Override materiality
+                <select id="override-band"><option value="">No override</option><option>negligible</option><option>minor</option><option>moderate</option><option>material</option><option>severe</option></select>
+              </label>
+              <label id="confirmed-teams-row" class="optional-field">Confirmed 2LoD teams (comma-separated)<input id="confirmed-teams" placeholder="Data & Privacy, Technology / Cyber" /></label>
+              <label>Reviewer<input id="reviewer" value="AIRO demo reviewer" /></label>
+              <button type="submit" class="primary amber-btn">Submit decision and resume</button>
+            </form>
+          </section>
+        </div>
+
+        <section class="tabs card">
+          <div class="tab-buttons">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="evidence">Inputs & Evidence</button>
+            <button class="tab" data-tab="assessment">Assessment</button>
+            <button class="tab" data-tab="lod2">2LoD Engagement</button>
+            <button class="tab" data-tab="pack">Review Pack</button>
+            <button class="tab" data-tab="calibration">Calibration</button>
+            <button class="tab" data-tab="history">History</button>
+          </div>
+          <div id="tab-content" class="tab-content"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

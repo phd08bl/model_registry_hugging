@@ -1,0 +1,198 @@
+Metadata-Version: 2.4
+Name: airo-agentic-risk-triage-demo
+Version: 0.1.0
+Summary: Human-governed AI risk-triage Case Coordinator demo using LangGraph and Ollama
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.32
+Requires-Dist: jinja2>=3.1
+Requires-Dist: python-multipart>=0.0.12
+Requires-Dist: langgraph>=1.0
+Requires-Dist: langgraph-checkpoint-sqlite>=2.0
+Requires-Dist: pydantic>=2.9
+Requires-Dist: pydantic-settings>=2.6
+Requires-Dist: httpx>=0.27
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: ruff>=0.9; extra == "dev"
+
+# AIRO Human-Governed Agentic Case Coordinator
+
+A runnable Python demonstration of an AI Risk Triage tool for an AI Risk Oversight Team
+(AIRO). It uses a LangGraph `StateGraph` to coordinate a persistent case, deterministic
+materiality and 2LoD routing engines, bounded Ollama capabilities, and mandatory or
+risk-based human decision gates.
+
+> **Important:** all questionnaire fields, scores, thresholds, dealbreakers, minimum-route
+> rules, 2LoD mappings and autonomy policies in this repository are illustrative. They are
+> not approved PwC or MRO methodology and must not be used for real risk decisions.
+
+## What the demo proves
+
+- The user works from a case queue rather than manually moving through rigid tabs.
+- The Coordinator chooses the next permitted step from case state and approved policy.
+- Missing or conflicting evidence creates a task and pauses the case for AIRO.
+- Ollama extracts and challenges evidence but cannot calculate, approve or publish a risk
+  outcome.
+- Materiality and 2LoD engagement are separate, transparent deterministic engines.
+- LangGraph interrupts persist the case at Human Gates; the same `thread_id` resumes after
+  an AIRO decision.
+- A deterministic autonomy policy supports progressive automation without changing the
+  architecture.
+- Every human decision, graph pause/resume and runtime choice is stored in an audit history.
+- Historical backtesting and one-answer-at-a-time sensitivity analysis support rule
+  calibration; neither changes rules automatically.
+
+## Architecture at a glance
+
+```mermaid
+flowchart TD
+    U["AIRO case workspace"] --> C["StateGraph Case Coordinator"]
+    C --> L["Bounded Ollama evidence tools"]
+    C --> D["Deterministic risk engines"]
+    C --> H["AIRO Human Gates"]
+    L --> C
+    D --> C
+    H --> C
+    C --> P["Review pack and local publication record"]
+```
+
+The system uses four activity types:
+
+| Type | Responsibility | Examples in the demo |
+|---|---|---|
+| **A — Agentic coordination** | Plan, route, pause, resume and re-plan the case | `app/graph.py` |
+| **L — Bounded LLM** | Extract evidence and challenge unsupported claims | `app/llm/ollama.py` |
+| **D — Deterministic** | Calculate materiality, 2LoD triggers and autonomy gates | `app/engines/` |
+| **H — Human judgement** | Confirm facts, resolve exceptions, decide triage and approve writes | LangGraph interrupts |
+
+This is deliberately a **single Case Coordinator**, not a group of role-playing agents.
+Separate agents would add coordination and assurance complexity without improving the core
+case-management problem.
+
+## Quick start with Ollama
+
+Prerequisites: Python 3.11+ and a local [Ollama](https://docs.ollama.com/) installation.
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Open <http://127.0.0.1:8000>. API documentation is at
+<http://127.0.0.1:8000/docs>.
+
+### Run without Ollama
+
+The deterministic mock is provided for automated tests and architecture demonstrations:
+
+```bash
+LLM_MODE=mock uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+When `LLM_MODE=ollama` and `ALLOW_MOCK_FALLBACK=true`, the UI visibly reports a degraded
+Ollama health state while governed mock fallback remains available. Each case records the
+runtime actually used.
+
+## Recommended demonstration
+
+1. Create **Internal Meeting Summary Assistant** and start the Coordinator.
+2. At the input gate, inspect the extracted evidence and confirm the material facts.
+3. Inspect the separate materiality and 2LoD tabs; proceed through challenge review.
+4. Confirm the final triage, approve the local publication record and inspect History.
+5. Create **Internal Policy RAG Assistant**. The evidence contradicts the personal-data
+   answer, so the Coordinator stops at an evidence gate.
+6. Choose `add_evidence`, enter privacy evidence and use
+   `{"personal_data": true}` as questionnaire updates. The case re-runs extraction and
+   evidence checks before continuing.
+7. Open Calibration. Run case sensitivity and the demo historical backtest.
+8. Create **Approved Internal Translation Helper** to discuss exception-based automation.
+
+See [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) for a presenter narrative.
+
+## Human Gates
+
+| Gate | Reserved AIRO decision | Example loop |
+|---|---|---|
+| Evidence request | Add evidence, proceed with a recorded gap, or cancel | Back to extraction |
+| Material input confirmation | Confirm or amend structured facts | Back to extraction |
+| Exception resolution | Proceed, amend, seek more evidence, or cancel | Back to evidence/review |
+| Final triage | Confirm or override materiality and 2LoD engagement | Back to exception review |
+| Publication | Approve local record, save a draft, or cancel | Durable publication pause |
+
+LangGraph nodes containing `interrupt()` may restart from the beginning when resumed. The
+implementation therefore keeps side effects outside those nodes and records application
+audits at the Coordinator boundary.
+
+## Progressive automation profiles
+
+| Profile | Intended use | Gate behaviour |
+|---|---|---|
+| `human_governed` | Initial implementation and higher-risk cases | Every configured gate |
+| `conditional_review` | Stable rules with selected automated preparation | Final decision plus exceptions/elevated cases |
+| `exception_based` | Mature, approved low-risk patterns | Exceptions, ineligibility and sampled cases |
+| `straight_through_demo` | Architecture demonstration only | Eligible low-risk cases may auto-confirm locally |
+
+The autonomy policy is deterministic and fail-safe. The LLM never decides its own autonomy.
+Production use should start with `human_governed`; moving a case population to another
+profile requires approved eligibility criteria, performance evidence and accountable owners.
+
+## Project map
+
+```text
+app/
+  graph.py                 LangGraph nodes, routes, loops and interrupts
+  coordinator.py           Case service, resume validation and audit boundary
+  engines/                 Materiality, 2LoD and autonomy rules
+  llm/                     Ollama adapter, schemas and deterministic mock
+  services/evidence.py     Non-LLM evidence checks and targeted questions
+  services/calibration.py  Backtesting and sensitivity diagnostics
+  services/review_pack.py  Structured AIRO review pack
+  database.py              SQLite case and audit store
+  static/                  Single-page demonstration UI
+tests/                     Engine, governance, calibration and workflow tests
+docs/                      Architecture, development guide and demo script
+```
+
+## Tests
+
+```bash
+pytest
+ruff check app tests
+```
+
+Tests run with the deterministic mock and require no Ollama service.
+
+## Production gaps intentionally left visible
+
+This demo is a development baseline, not a deployable control. Before production, the team
+must replace or extend it with:
+
+- approved, version-controlled questionnaire and rule configuration;
+- SSO, role-based access, separation of duties and case-level permissions;
+- production database, encrypted evidence storage, retention and legal-hold controls;
+- malware scanning, file parsing isolation and prompt-injection defences;
+- model gateway, allow-listed models, observability, redaction and data-loss controls;
+- formally governed Confluence/SharePoint adapters with idempotency and approval scopes;
+- service monitoring, retry/dead-letter handling, backup and disaster recovery;
+- golden datasets, expert-labelled backtests, override analysis and change approval;
+- security, privacy, model-risk and operational-readiness assessment of the tool itself.
+
+Further detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/TEAM_DEVELOPMENT_GUIDE.md](docs/TEAM_DEVELOPMENT_GUIDE.md).
+
+## Primary framework references
+
+- [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)
+- [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
+- [Ollama chat API](https://docs.ollama.com/api/chat)
+- [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs)
+
