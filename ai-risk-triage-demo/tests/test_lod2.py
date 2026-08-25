@@ -3,7 +3,7 @@ from app.samples import SAMPLES
 
 
 def test_2lod_triggers_are_answer_based():
-    answers = SAMPLES["human_evidence_conflict"].questionnaire.model_dump()
+    answers = SAMPLES["multiple_evidence_actions"].questionnaire.model_dump()
     result = calculate_2lod_triggers(answers)
 
     assert "Third-party / Supplier Risk" in result["teams"]

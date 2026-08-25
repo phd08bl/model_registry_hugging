@@ -1,7 +1,7 @@
 import pytest
 
 from app.samples import SAMPLES
-from app.schemas import HumanDecision
+from app.schemas import ExternalEventSubmission, HumanDecision
 
 GATE_STATUSES = {
     "evidence_request": "AWAITING_INFORMATION",
@@ -9,10 +9,13 @@ GATE_STATUSES = {
     "exception_resolution": "AWAITING_EXCEPTION_DECISION",
     "final_triage": "AWAITING_FINAL_DECISION",
     "publication": "READY_TO_PUBLISH",
+    "control_exception_review": "CONTROL_EXCEPTION",
 }
 
 PRIMARY_SAMPLE_IDS = [
-    sample_id for sample_id, sample in SAMPLES.items() if sample.category != "advanced_controls"
+    sample_id
+    for sample_id, sample in SAMPLES.items()
+    if sample.expected_final_status != "CONTROL_EXCEPTION"
 ]
 
 
@@ -51,7 +54,7 @@ def _assert_pause_is_ui_complete(case: dict) -> None:
     assert case["status"] == GATE_STATUSES[gate_id]
     assert state["status"] == case["status"]
     assert state["current_gate"] == gate_id
-    assert gate["title"].startswith("AIRO Gate")
+    assert gate["title"].startswith("AIRO")
     assert gate["gate_version"]
     assert gate["decision_required"]
     assert gate["reason"]
@@ -92,7 +95,25 @@ def test_every_primary_mock_sample_matches_its_documented_gate_path(coordinator,
     case = coordinator.start(case_id)
     observed_gates: list[str] = []
 
-    for _ in range(8):
+    for _ in range(12):
+        if case.get("pending_event"):
+            expected = case["pending_event"]
+            case = coordinator.submit_external_event(
+                case_id,
+                ExternalEventSubmission(
+                    event_type=expected["event_type"],
+                    case_id=case_id,
+                    correlation_id=expected["correlation_id"],
+                    source=expected["expected_source"],
+                    schema_version=expected["schema_version"],
+                    case_state_version=case["state"]["case_state_version"],
+                    artifact_text=(
+                        "Supplier due diligence, contract, assurance and model-change "
+                        "responsibilities are approved."
+                    ),
+                ),
+            )
+            continue
         if not case["pending_gate"]:
             break
         _assert_pause_is_ui_complete(case)
@@ -120,6 +141,7 @@ def test_every_primary_mock_sample_matches_its_documented_gate_path(coordinator,
         "invalid_tool_proposal",
         "prompt_injection_evidence",
         "action_budget_exhaustion",
+        "malformed_tool_result",
     ],
 )
 def test_advanced_mock_fail_closed_cases_expose_a_complete_gate_state(coordinator, sample_id):
@@ -127,12 +149,6 @@ def test_advanced_mock_fail_closed_cases_expose_a_complete_gate_state(coordinato
     case = coordinator.start(created["case_id"])
 
     _assert_pause_is_ui_complete(case)
-    assert case["pending_gate"]["gate_id"] == "evidence_request"
-    assert case["state"]["latest_verification"]["disposition"] in {
-        "escalate",
-        "rejected",
-    }
-    assert any(
-        issue["status"] == "open" and not issue["advisory"]
-        for issue in case["state"]["open_issues"]
-    )
+    assert case["pending_gate"]["gate_id"] == "control_exception_review"
+    assert case["state"]["lifecycle_status"] == "CONTROL_EXCEPTION"
+    assert case["state"]["control_exception"]["status"] == "OPEN"

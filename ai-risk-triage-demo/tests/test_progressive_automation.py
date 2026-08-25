@@ -14,7 +14,7 @@ def start_sample(coordinator, sample_name: str) -> tuple[str, dict]:
 
 
 def test_catalogue_uses_typed_metadata_and_covers_all_profiles():
-    assert len(SAMPLES) == 15
+    assert len(SAMPLES) == 18
     assert {sample.category for sample in SAMPLES.values()} == set(SAMPLE_CATEGORIES)
     assert {sample.expected_assigned_profile for sample in SAMPLES.values()} == {
         "human_governed",

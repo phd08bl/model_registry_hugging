@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from app.schemas import StateInvalidation
+from app.schemas import ActionType, StateInvalidation
 
 RISK_ENGINE_FIELDS = {
     "customer_facing",
@@ -34,16 +34,33 @@ def invalidation_update(
         if state.get("questionnaire", {}).get(key) != value
     }
     affected = {
-        "evidence_extraction",
-        "evidence_claims",
         "confirmed_facts",
         "mandatory_evidence_gaps",
+        "evidence_conflicts",
         "challenge_summary",
         "follow_up_questions",
         "exceptions",
         "confirmed_exceptions",
         "review_pack",
     }
+    rework_actions = [
+        ActionType.CHECK_QUESTIONNAIRE_EVIDENCE_CONSISTENCY.value,
+        ActionType.VERIFY_CITATIONS.value,
+    ]
+    if evidence_changed:
+        affected.update(
+            {
+                "evidence_extraction",
+                "evidence_claims",
+                "candidate_facts",
+                "advisory_observations",
+                "llm_advisory_observations",
+            }
+        )
+        rework_actions.insert(0, ActionType.EXTRACT_SUBMITTED_EVIDENCE.value)
+        questionnaire = state.get("questionnaire", {})
+        if state.get("active_external_event") and questionnaire.get("external_model_or_supplier"):
+            rework_actions.append(ActionType.CHECK_SUPPLIER_EVIDENCE.value)
     material_change = bool(changed_fields & RISK_ENGINE_FIELDS)
     if changed_fields & RISK_ENGINE_FIELDS:
         affected.update(
@@ -75,8 +92,12 @@ def invalidation_update(
                 previous_version=version,
                 reason="A dependency changed; stale output must not remain authoritative.",
                 triggering_change=trigger,
+                affected_dependencies=sorted(affected),
+                replacement_required=True,
                 material_change=material_change,
-                previous_approval_remains_effective=key != "final_outcome",
+                previous_approval_remains_effective=(
+                    key != "final_outcome" and not material_change
+                ),
                 invalidated_at=now,
             ).model_dump()
         )
@@ -104,6 +125,20 @@ def invalidation_update(
                 for key, value in state.get("current_authoritative_results", {}).items()
                 if key not in affected
             },
+            "stale_outputs": sorted(set(state.get("stale_outputs", [])) | affected),
+            "rework_actions": list(dict.fromkeys(rework_actions)),
+            "open_objectives": [
+                *state.get("open_objectives", []),
+                *[
+                    {
+                        "objective_id": f"REWORK-{uuid.uuid4().hex[:10].upper()}",
+                        "action": action,
+                        "status": "OPEN",
+                        "reason": f"Selective rework required after {trigger}.",
+                    }
+                    for action in dict.fromkeys(rework_actions)
+                ],
+            ],
             "material_change_requires_airo_review": material_change
             or bool(state.get("final_outcome")),
         }

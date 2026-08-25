@@ -1,57 +1,76 @@
 # Demonstration-case coverage
 
-**Status:** current 15-case catalogue. All expected profiles, patterns, risk outputs and Gate
-routes are illustrative demo behavior; metadata cannot force runtime decisions.
+**Status:** current 18-case catalogue. Eight numbered Cases provide the required major-feature
+journeys; six dedicated Progressive Automation Cases, together with the featured human and
+downgraded journeys, cover all four policy-assigned profiles; four additional control Cases
+demonstrate bounded failure paths.
 
-## Review-first gap analysis
+All profiles, patterns, sampling keys, materiality rules, 2LoD triggers and expected outcomes
+are illustrative demo policy. Expected metadata documents and tests the lesson; the StateGraph
+never reads it to force a runtime result.
 
-This matrix records the post-refactor state inspected before sample changes.
+## Eight major feature Cases
 
-| Agent feature | Existing sample coverage | Gap found | Implemented sample/change |
+| # | Sample key and purpose | Runtime evidence | Expected control path | Expected result |
+|---|---|---|---|---|
+| 1 | `human_full_review` — standard low-risk Case | Routine extraction; later deterministic single-action selections; no evidence exception; readiness; negligible materiality; empty independent 2LoD proposal | Input confirmation → engines → final AIRO review → controlled local publication | `AIRO_CONFIRMED`, then `PUBLISHED_LOCAL_DEMO` |
+| 2 | `multiple_evidence_actions` — multiple permitted evidence actions | Supervisor exposes several actions; bounded LLM recommends one; deterministic Authoriser binds the Tool Contract; verifier records accepted/advisory disposition; Coordinator re-observes and continues | Evidence action loop → input confirmation → final AIRO review → local publication | `AIRO_CONFIRMED` |
+| 3 | `human_evidence_conflict` — questionnaire/evidence conflict | Questionnaire says no personal data; cited evidence names employee identifiers; deterministic consistency conflict; citation verification; AIRO amendment; extraction/consistency/citation rerun while unrelated RAG verification remains current | Evidence Resolution → input confirmation → exception interpretation where applicable → final review → publication | `AIRO_CONFIRMED` |
+| 4 | `missing_supplier_evidence` — missing supplier evidence | External foundation model; missing contract/due-diligence assurance; durable correlated stakeholder wait; same-Case event resume; supplier check rerun; invalid correlation, timeout and duplicate-event controls | External Event Wait → selective evidence rework → input/exception/final/publication Gates | `AIRO_CONFIRMED` |
+| 5 | `agentic_ai_autonomy` — autonomy exception | Autonomous and critical-process declarations; agentic control checker; missing approval/pause/kill-switch/rollback evidence; severe deterministic materiality; independent 2LoD triggers | Input confirmation → Exception Interpretation → final AIRO review → publication | `AIRO_CONFIRMED` |
+| 6 | `selective_replanning` — stale outputs and selective replanning | Initial engines and final AIRO decision; one material-fact amendment; dependent proposals/review pack/decision become stale; extraction preserved; dependency-selected reruns only | Initial G2/G3/G4/G5 → amendment → renewed evidence and AIRO review | `AIRO_RECONFIRMATION_REQUIRED_AFTER_INVALIDATION` |
+| 7 | `malformed_tool_result` — tool verification failure | Authorised tool returns a protected malformed payload; output-schema rejection; no candidate/confirmed fact update; one bounded retry; unresolved failure | Tool execution → verifier retry → verifier escalation → Control Exception review | `CONTROL_EXCEPTION` |
+| 8 | `straight_through_ineligible` — elevated/high-risk Case | Straight-Through Demo approved maximum; elevated declarations deterministically downgrade effective profile to Human Governed; severe proposal; mandatory second-line teams and protected Gates | Downgrade → evidence checks → G2/G3/G4/G5 | `AIRO_CONFIRMED`; no Router/profile bypass |
+
+## Progressive Automation examples
+
+| Sample | Policy-assigned effective profile | Teaching point | Expected Gates/result |
 |---|---|---|---|
-| Single Coordinator and deterministic engines | All original workflows used one graph | Boundary was not explained on each card | All cards and case views explain supervisor/router/tool/verifier/AIRO roles |
-| System-assigned profiles | Governed fixtures existed; normal input had no profile | Expected metadata still used a legacy profile name; sampling used random case IDs | Typed governed fixtures, `straight_through_demo`, protected stable sampling keys |
-| Bounded router and allowlist | Normal extraction/check routes | No low-confidence or invalid-tool journey | Low-confidence and invalid-tool advanced cases with no invocation on rejection |
-| Result verification | Normal semantic limitations were traced | No invalid citation or injection sample | Prompt-injection sample with invalid citation, security issue and escalation |
-| Selective replanning | Unit-level invalidation and an early evidence loop | No post-engine interactive proof | Selective-replanning case edits a risk input after engines and preserves superseded results |
-| Progressive Automation | Four profiles broadly represented | Random sampling and outdated Gate descriptions | Eligible, sampled, exception, straight-through and downgraded cases use actual policy |
-| Budget/failure controls | Supervisor unit tests | Escalation proposal could reach verifier without a tool result and lacked trace | Action-budget case plus explicit rejected/escalated no-tool trace node |
-| Evidence checker depth | RAG/agentic/supplier tools existed | One keyword could mask all missing controls | Separate advisory observations for grounding/citations, action/rollback and supplier duties |
-| Prompt-injection detection | Verifier had a heuristic | Exact “ignore previous instructions” phrase did not match | Optional-qualifier pattern fixed and regression-tested |
-| UI explanation | Objective/profile/tool/budget and raw JSON existed | Samples grouped only by profile; distinctions relied on JSON | Three learning groups, expected lesson, AIRO attention, typed findings and concise trace |
+| `human_full_review` | `human_governed` | Low apparent risk never removes AIRO authority | G2, G4, G5; AIRO-confirmed local publication |
+| `conditional_clean_final` | `conditional_review` | Clean read-only preparation may skip preparation Gates; final triage remains human | G4, G5 |
+| `conditional_exception` | `conditional_review` | An unapproved-pattern exception restores exception review | G3, G4, G5 |
+| `exception_based_eligible` | `exception_based` | Eligible, non-sampled Case records deterministic Gate skips | G2, G5; demo-policy auto-confirmation |
+| `exception_based_sampled` | `exception_based` | Stable protected sampling—not risk or the LLM—requires final review | G2, G4, G5 |
+| `exception_based_triggered` | `exception_based` | A confirmed exception overrides streamlined processing | G2, G3, G4, G5 |
+| `straight_through_eligible` | `straight_through_demo` | Explicitly eligible low-risk fixture can complete later local-only decisions | G2; local demo publication only |
+| `straight_through_ineligible` | `human_governed` (approved maximum `straight_through_demo`) | Elevated risk forces a pre-LLM policy downgrade | G2, G3, G4, G5 |
 
-## Final sample coverage matrix
+There is no user-selectable or fixture-controlled profile override. The deterministic
+illustrative policy assigns both approved maximum and effective profile. Protected teaching
+controls such as a stable sampling key, malformed output, low confidence or a one-call budget
+change only the demonstrated route/result condition; they never change the assigned profile.
+The catalogue and Case header label this distinction explicitly.
 
-Expected fields document and test a fixture; they never force graph output. “Policy-skipped”
-means a recorded deterministic decision. A Gate absent because its triggering event did not
-occur is not described as skipped by the AI.
+## Additional bounded-control Cases
 
-| Sample | Effective profile | Router/tool feature | Verification feature | Expected Gates | Key learning |
-|---|---|---|---|---|---|
-| Policy RAG Evidence Conflict | human governed | LLM chooses among extraction, RAG and supplier checks | Citations plus advisory semantic limits | G1, G2, G3, G4, G5 | A conflict forces evidence review and a corrected answer replans |
-| New Internal Meeting Summary | human governed | Extraction and deterministic consistency | Source-linked extraction is advisory | G2, G3, G4, G5 | New low-risk appearance does not grant autonomy |
-| Agentic-AI Autonomy Controls | human governed | Agentic autonomy checker | Action-control findings remain advisory | G2, G3, G4, G5 | The Coordinator assesses another agent without becoming many agents |
-| Approved Internal Translation Helper | conditional review | Automatic read-only preparation | Verified/advisory tool trace | G4, G5 | Clean preparation Gates are policy-skipped; final triage is human |
-| Pattern Deviation Requires Review | conditional review | Evidence preparation plus challenge | Deviation remains an explicit issue | G3, G4, G5 | An approved maximum does not erase a case deviation |
-| Eligible Approved Pattern | exception based | Automatic preparation | Verified results and skip records | G2, G5 | Non-sampled eligible case skips permitted later review |
-| Deterministically Sampled for Review | exception based | Same eligible preparation | Stable sampling reason | G2, G4, G5 | Sampling, not higher risk, can require final review |
-| Exception Requires Review | exception based | Preparation plus challenge | Exception separated from advisory observations | G2, G3, G4, G5 | Exceptions override streamlined processing |
-| Eligible Internal Summary | straight-through demo | Approved read-only tools and local adapter | Versioned, idempotent local result | G2 | Maximum demo permissions remain tightly bounded |
-| Ineligible Autonomous Customer Case | human governed (downgraded) | Agentic and supplier checks | Advisory findings plus deterministic engines | G2, G3, G4, G5 | Elevated declarations prevent straight-through authority |
-| Low-Confidence Router Result | human governed | Protected mock returns 0.20 confidence | Proposal rejected; no invocation | G1 | Confidence policy fails closed |
-| Invalid Tool Proposal | human governed | Router proposes deterministic engine as evidence tool | Allowlist rejection; no invocation | G1 | Router cannot cross the risk-decision boundary |
-| Prompt-Injection Evidence | human governed | Extraction preserves untrusted text | Missing citation plus security observation | G1 | Document instructions never become system authority |
-| Selective Replanning and Invalidation | human governed | Targeted rerouting after answer edit | Current/superseded distinction | G2, G3, then renewed review | Dependencies, not a blind reset, determine reruns |
-| Action-Budget Exhaustion | human governed | One permitted tool call, then deterministic escalation | Explicit no-tool escalation trace | G1 | Bounded loops cannot recurse indefinitely |
+| Sample | Control demonstrated | Expected result |
+|---|---|---|
+| `low_confidence_router` | Below-threshold recommendation; no invocation | Control Exception |
+| `invalid_tool_proposal` | Non-allowlisted tool proposal rejected before execution | Control Exception |
+| `prompt_injection_evidence` | Untrusted document instruction and invalid citation remain data, not authority | Control Exception |
+| `action_budget_exhaustion` | One-call protected budget proves deterministic loop termination | Control Exception |
 
-## Capability coverage assertions
+## Required metadata and verification
 
-`tests/test_samples.py` validates every fixture’s policy assignment, documented deterministic
-risk expectation, rejection paths, injection handling, budget stop and selective
-invalidation. `tests/test_progressive_automation.py` covers all four effective profiles,
-stable sampling and Gate-skip behaviour. Registry, verifier, router and policy contract tests
-remain in `tests/test_agent_governance.py`.
+Every catalogue item supplies:
+
+- expected path;
+- expected dynamic actions;
+- expected tools;
+- expected verification statuses;
+- expected exceptions;
+- expected Governance Loops and Gates;
+- expected final result;
+- learning objectives explaining what the sample demonstrates;
+- exact interactive steps;
+- expected policy-assigned profile and approved maximum;
+- protected teaching controls, explicitly labelled as not being a profile override.
+
+`tests/test_featured_cases.py` validates the numbered Case mapping and the runtime behavior of
+Cases 1, 2, 3 and 8. Existing sample, external-event, verifier, replanning and Progressive
+Automation tests validate Cases 4–7, every fixture’s deterministic risk expectations, all four
+effective profiles, stable sampling, Gate skips, retry/budget limits and protected decisions.
 
 The exact wording produced by a live LLM is intentionally not asserted. Mock mode uses
-protected scenario controls stored outside normal creation input. Every live-provider mode
-uses the same Pydantic proposal/result boundaries, but semantic wording may vary.
+protected deterministic teaching behavior; every live-provider mode uses the same typed
+proposal, Authoriser, Tool Contract and Result Verifier boundaries.

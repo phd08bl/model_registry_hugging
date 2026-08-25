@@ -16,13 +16,9 @@ def test_human_governed_case_pauses_and_resumes_to_completion(coordinator):
     assert case["pending_gate"]["gate_id"] == "input_confirmation"
 
     case = coordinator.resume(case_id, decision("confirm"))
-    assert case["pending_gate"]["gate_id"] == "exception_resolution"
-
-    case = coordinator.resume(case_id, decision("proceed"))
     assert case["pending_gate"]["gate_id"] == "final_triage"
     assert "input_gate" in case["state"]["completed_nodes"]
-    assert case["state"]["confirmed_exceptions"]
-    assert case["state"]["confirmed_exceptions"][0]["status"] == "accepted"
+    assert not case["state"]["confirmed_exceptions"]
 
     case = coordinator.resume(case_id, decision("confirm"))
     assert case["pending_gate"]["gate_id"] == "publication"
@@ -31,7 +27,7 @@ def test_human_governed_case_pauses_and_resumes_to_completion(coordinator):
     assert case["status"] == "CLOSED"
     assert case["state"]["final_outcome"]["status"] == "AIRO_CONFIRMED"
     assert case["state"]["publication_status"] == "PUBLISHED_LOCAL_DEMO"
-    assert len(case["audit"]) >= 9
+    assert len(case["audit"]) >= 8
 
 
 def test_evidence_conflict_creates_targeted_human_gate(coordinator):
@@ -251,10 +247,9 @@ def test_invalid_gate_action_is_rejected(coordinator):
 
 
 def test_exception_proceed_requires_airo_rationale(coordinator):
-    case = coordinator.create_demo_case(SAMPLES["human_full_review"])
+    case = coordinator.create_demo_case(SAMPLES["conditional_exception"])
     case_id = case["case_id"]
-    coordinator.start(case_id)
-    case = coordinator.resume(case_id, decision("confirm"))
+    case = coordinator.start(case_id)
     assert case["pending_gate"]["gate_id"] == "exception_resolution"
 
     with pytest.raises(ValueError, match="requires a decision rationale"):
@@ -266,7 +261,6 @@ def test_save_draft_returns_to_publication_gate(coordinator):
     case_id = case["case_id"]
     coordinator.start(case_id)
     coordinator.resume(case_id, decision("confirm"))
-    coordinator.resume(case_id, decision("proceed"))
     coordinator.resume(case_id, decision("confirm"))
 
     case = coordinator.resume(case_id, decision("save_draft"))
@@ -287,8 +281,8 @@ def test_workflow_failure_is_stored_without_internal_exception_text(coordinator,
 
     stored = coordinator.get_case(case["case_id"])
     serialized = str(stored)
-    assert stored["status"] == "ERROR"
-    assert "failed closed" in stored["state"]["error"]
+    assert stored["status"] == "FAILED_SAFE"
+    assert stored["state"]["control_exception"]["code"] == "UNHANDLED_WORKFLOW_FAILURE"
     assert secret not in serialized
     graph_error = next(item for item in stored["audit"] if item["action"] == "GRAPH_ERROR")
     assert graph_error["details"] == {

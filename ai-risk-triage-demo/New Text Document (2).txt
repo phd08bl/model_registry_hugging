@@ -1,0 +1,1663 @@
+
+
+
+
+
+
+now review the design of the agent flow in the codes, are they in line with the design of Agentic workflow - Policy-Supervised, Exception-Driven AI Risk Triage Case Coordinator? so the codes runs like : 
+Coordinator会持续执行：
+观察Case State
+→ 识别未完成目标
+→ Policy Supervisor确定允许行动
+→ 在允许行动中选择下一步
+→ 授权并调用工具
+→ 验证结果
+→ 更新State
+→ 根据新状态重新规划
+→ 继续、等待、交给AIRO或完成
+
+
+是否具备完整的Agentic Loop：
+
+
+Goal	Case objective和completion criteria
+State/Memory	持久化Triage Case State
+Observe	Case State Observer
+Plan	根据未解决目标形成下一步行动
+Constrain	Deterministic Policy Supervisor
+Select	Deterministic Selector或Bounded LLM Recommender
+Act	Governed Tool Executor
+Verify	Result Verifier
+Replan	State更新和Selective Replanning
+Tool use	Evidence、Materiality、2LoD、Review Pack等
+Human governance	Exception-driven AIRO Governance Loops
+External wait	Evidence和外部系统Event
+Stop	Completion、Cancellation或Control Exception
+
+根据上面的审查的所以发现， 修复 所有的问题，检查并保证程序一切正常， 修复后之后再审查一遍
+
+
+
+
+
+
+
+
+
+
+
+Now do a final review and check, make sure all the updates and changes required in the following have been all completed and working ok, including code implementation, design, front end ui, demonstrations, documents:
+
+
+Your task is to review the current implementation first, then safely upgrade it into a:
+
+# Policy-Supervised, Exception-Driven AI Risk Triage Case Coordinator
+
+The target is a genuinely state-driven Agentic Workflow in which one Coordinator:
+
+* reads the current Case objective and authoritative state;
+* identifies unresolved Case objectives;
+* determines permitted actions using deterministic policy;
+* dynamically selects among approved tools where appropriate;
+* processes human decisions and external events;
+* verifies all LLM and tool results before they affect authoritative Case facts;
+* selectively replans when evidence, facts or configuration change;
+* manages unresolved objectives, gaps, conflicts, exceptions and stale outputs;
+* continues the bounded control loop until it must wait, escalate, fail safely, cancel or complete;
+* preserves AIRO authority over protected risk decisions.
+
+Do not create multiple independent agents. Use:
+
+> One stateful Case Coordinator plus governed tools and bounded LLM capabilities.
+
+Materiality, second-line routing, evidence processing, challenge generation, review-pack generation and publication are tools/capabilities used by the Coordinator. They are not separate autonomous agents.
+
+---
+
+# 1. Mandatory first step: inspect the current repository
+
+Do not assume the repository still matches an earlier design.
+
+Before changing code:
+
+1. Inspect the full repository structure.
+2. Read the current:
+
+   * application entrypoints;
+   * graph and Coordinator implementation;
+   * state schemas;
+   * deterministic materiality engine;
+   * deterministic second-line routing engine;
+   * evidence services;
+   * LLM interfaces and implementations;
+   * autonomy/profile policy;
+   * persistence and repository code;
+   * API routes;
+   * frontend HTML, JavaScript and CSS;
+   * demonstration samples;
+   * tests;
+   * README and all documentation files;
+   * dependency and configuration files.
+3. Search for existing implementations of:
+
+   * Policy Supervisor;
+   * action planning;
+   * action routing;
+   * Tool Registry;
+   * action authorisation;
+   * result verification;
+   * citation checking;
+   * stale-output invalidation;
+   * selective replanning;
+   * external events;
+   * human-decision validation;
+   * progressive automation;
+   * completion evaluation;
+   * control exceptions.
+4. Run the complete existing test suite before changing anything.
+5. Record:
+
+   * current test result;
+   * current graph topology;
+   * current Case State fields;
+   * current human Gates;
+   * current deterministic/LLM boundaries;
+   * existing agentic features;
+   * existing gaps against the target design.
+
+Create or update:
+
+```text
+docs/CURRENT_AGENT_DESIGN_REVIEW.md
+```
+
+The review must distinguish:
+
+```text
+Already implemented and adequate
+Implemented but incomplete
+Implemented differently but reusable
+Missing and required
+Out of scope for this demo
+```
+
+Do not create duplicate components when the capability already exists. Reuse and refactor current code where appropriate.
+
+After completing the review, proceed with implementation unless there is a material ambiguity that would risk changing the intended materiality or second-line risk methodology.
+
+---
+
+# 2. Preserve the existing risk decision boundary
+
+The following must remain deterministic or human-owned:
+
+## Deterministic decision-support
+
+* questionnaire validation;
+* approved answer-to-score mappings;
+* weights and thresholds;
+* dealbreakers;
+* minimum-route rules;
+* materiality calculation;
+* validation-requirement mapping where already approved;
+* second-line risk-team trigger rules;
+* automation-profile eligibility and assignment;
+* Gate requirements;
+* action permissions;
+* completion criteria.
+
+## AIRO-owned decisions
+
+The LLM and Coordinator must not independently:
+
+* confirm the final materiality band;
+* decide the final risk tier;
+* confirm final second-line engagement;
+* approve an override;
+* reinterpret protected risk rules;
+* select or increase the automation profile;
+* bypass a mandatory human Gate;
+* approve consequential external publication;
+* change questionnaire scoring, thresholds or rule versions.
+
+Retain and reuse the current deterministic materiality and second-line engines unless a change is necessary to support tool contracts. Do not change their business results silently.
+
+If current rules are illustrative demo rules, continue labelling them clearly as demo rules.
+
+---
+
+# 3. Target control loop
+
+Refactor the top-level StateGraph so that it implements this control pattern:
+
+```text
+Observe current Case state
+→ Deterministic Policy Supervisor
+→ Select one required action OR use bounded LLM recommendation
+→ Deterministic Action Authorisation
+→ Execute approved tool
+→ Verify result
+→ Update authoritative state and dependencies
+→ Re-evaluate:
+   - continue;
+   - selectively replan;
+   - wait for external event;
+   - interrupt for AIRO;
+   - enter control exception;
+   - cancel;
+   - complete.
+```
+
+Target conceptual graph:
+
+```mermaid
+flowchart TD
+    A["[STATE] Observe Triage Case"] --> B["[DET] Triage Policy Supervisor"]
+
+    B -->|One required action| C["[DET] Select Required Action"]
+    B -->|Several permitted evidence actions| D["[LLM] Bounded Evidence Action Recommender"]
+    B -->|AIRO judgement required| H["[HITL] AIRO Governance Loop"]
+    B -->|External information required| K["[EVENT] External Event Wait"]
+    B -->|Cannot continue safely| L["[STATE] Control Exception"]
+    B -->|Completion criteria met| M["[END] Case Completed"]
+
+    C --> E["[DET] Authorise Selected Action"]
+    D --> E
+
+    E -->|Authorised| F["[TOOL] Execute Approved Triage Capability"]
+    E -->|Human authority required| H
+    E -->|Rejected or unsafe| L
+
+    F --> G["[VERIFY] Verify Tool Result"]
+    G --> I["[STATE] Update State and Evaluate Transition"]
+
+    I -->|More permitted work| A
+    I -->|Selective replanning| A
+    I -->|AIRO judgement| H
+    I -->|External wait| K
+    I -->|Control failure| L
+    I -->|Complete| M
+
+    H --> N["[DET] Validate AIRO Decision"]
+    N -->|Valid| A
+    N -->|Invalid| H
+
+    K --> O["[DET] Validate External Event"]
+    O -->|Valid| A
+    O -->|Continue waiting| K
+```
+
+The exact node structure may differ if the current repository already contains a better implementation, but the above control responsibilities must remain explicit and testable.
+
+Do not merely rename the existing fixed nodes. The Coordinator must actually select actions from current Case State and policy.
+
+---
+
+# 4. Introduce a deterministic Triage Policy Supervisor
+
+Implement or strengthen a deterministic Policy Supervisor.
+
+The Supervisor must evaluate the full current Case State—not merely answer whether a numbered Gate should be skipped.
+
+It must determine:
+
+* allowed actions;
+* prohibited actions;
+* allowed tools;
+* mandatory action, if exactly one action is required;
+* whether the bounded LLM recommender may be called;
+* whether AIRO judgement is required;
+* which Human Governance Loop is required;
+* whether an external event is required;
+* expected event type;
+* whether materiality and second-line engines are ready to run;
+* whether external writing is permitted;
+* remaining tool, retry, evidence-loop and total-loop budgets;
+* effective Progressive Automation profile;
+* whether completion criteria may be evaluated;
+* whether the Case must enter a Control Exception.
+
+Use a structured model similar to:
+
+```python
+class SupervisorDecision(BaseModel):
+    policy_version: str
+
+    allowed_actions: list[str]
+    prohibited_actions: list[str]
+    allowed_tools: list[str]
+
+    mandatory_action: str | None
+    llm_recommender_permitted: bool
+
+    human_decision_required: bool
+    active_governance_loop: str | None
+    governance_reason: str | None
+
+    external_event_required: bool
+    expected_event_type: str | None
+
+    ready_for_deterministic_engines: bool
+    external_write_permitted: bool
+
+    remaining_tool_calls: int
+    remaining_evidence_cycles: int
+    remaining_total_loops: int
+
+    completion_candidate: bool
+
+    control_exception: bool
+    control_exception_reason: str | None
+
+    rationale: str
+```
+
+The Policy Supervisor must be deterministic, versioned and independently testable. It must not call an LLM.
+
+---
+
+# 5. Add deterministic and bounded action selection
+
+## Deterministic Action Selector
+
+When there is one mandatory action, select it without calling an LLM.
+
+Examples:
+
+* questionnaire schema validation remains;
+* no supporting evidence has been submitted;
+* a mandatory evidence check remains;
+* confirmed inputs are ready for deterministic engines;
+* stale materiality must be recalculated;
+* review pack is stale and must be regenerated;
+* the Case must wait for an external response;
+* final completion evaluation is required.
+
+## Bounded LLM Evidence Action Recommender
+
+Only call the LLM when:
+
+* more than one permitted evidence-processing action is available;
+* no deterministic priority rule resolves the choice;
+* contextual reasoning is likely to add value.
+
+Use structured output:
+
+```python
+class ActionProposal(BaseModel):
+    selected_action: str
+    selected_tool: str
+    reason: str
+    inputs_required: list[str]
+    confidence: float
+    human_review_recommended: bool
+```
+
+The LLM receives only:
+
+* current Case objective;
+* unresolved objectives;
+* relevant Case context;
+* allowed actions;
+* allowed tools;
+* previous verified results;
+* execution budgets.
+
+The LLM must not invent tools, actions or permissions.
+
+The LLM must not select:
+
+* materiality band;
+* final second-line engagement;
+* validation requirement;
+* risk tier;
+* automation profile;
+* Gate bypass;
+* final approval;
+* override;
+* formal publication.
+
+If the LLM returns an unknown, prohibited or malformed action, reject it safely and either:
+
+* use a deterministic fallback;
+* retry within budget;
+* or escalate to AIRO/Control Exception.
+
+---
+
+# 6. Add explicit action authorisation
+
+All selected actions must pass through deterministic Action Authorisation immediately before execution.
+
+This applies to both:
+
+```text
+Deterministic Action Selector
+and
+Bounded LLM Action Recommender
+```
+
+The Authoriser must check:
+
+* action is allowed in the current state;
+* tool is registered and allowlisted;
+* required inputs exist;
+* data permissions are satisfied;
+* state, policy and rule versions are current;
+* action remains within budget;
+* human authority is not required first;
+* no mandatory Gate is bypassed;
+* action does not modify protected rules;
+* action is within the effective automation profile;
+* consequential external action has explicit authority.
+
+Create an auditable authorisation result containing:
+
+```text
+authorisation_id
+action
+tool
+decision
+reason
+policy_version
+case_state_version
+timestamp
+```
+
+---
+
+# 7. Implement a governed Tool Registry
+
+Wrap existing capabilities behind explicit Tool Contracts.
+
+Do not expose unrestricted functions directly to the LLM.
+
+Expected tool categories include:
+
+## Evidence preparation
+
+* questionnaire normalisation;
+* document parsing;
+* evidence extraction;
+* evidence completeness checking;
+* questionnaire-to-evidence consistency checking;
+* approved policy retrieval;
+* supplier evidence checking;
+* personal/sensitive-data evidence checking;
+* RAG evidence checking;
+* agentic-AI autonomy/control checking;
+* citation checking;
+* follow-up question generation;
+* new-evidence summarisation.
+
+## Risk decision-support
+
+* deterministic materiality engine;
+* deterministic second-line trigger engine;
+* readiness check;
+* proposal combination.
+
+## Review and output
+
+* bounded challenge generation;
+* review-pack generation;
+* publication-draft preparation;
+* local demo publication;
+* future external publication adapter.
+
+Each Tool Contract should define at least:
+
+```text
+tool_id
+tool_version
+description
+input_schema
+output_schema
+authority_class
+data_permissions
+read_only
+human_approval_required
+idempotent
+timeout
+maximum_retries
+result_verifier
+owner
+```
+
+Suggested authority classes:
+
+```text
+READ_ONLY
+ADVISORY_PROCESSING
+REVERSIBLE_PREPARATION
+PROTECTED_DECISION_SUPPORT
+EXTERNAL_DRAFT
+CONSEQUENTIAL_EXTERNAL_ACTION
+```
+
+Keep materiality and second-line routing as deterministic engines/tools, not agents.
+
+---
+
+# 8. Add independent result verification
+
+Do not allow every LLM or tool output to update authoritative Case facts immediately.
+
+Implement Result Verifiers appropriate to each tool type.
+
+Verification should include, where applicable:
+
+* output schema;
+* tool identity and version;
+* source and citation existence;
+* citation text actually supports the claim;
+* confidence threshold;
+* relevance to the current Case objective;
+* current state and rule version;
+* absence of prompt-injection instruction following;
+* unresolved contradictions;
+* no unauthorised materiality, second-line or approval decision;
+* no mandatory Gate bypass;
+* deterministic engine calculation trace;
+* publication content is based only on current verified results.
+
+Use structured statuses:
+
+```text
+VERIFIED
+VERIFIED_WITH_LIMITATIONS
+ADVISORY_ONLY
+REJECTED
+EXECUTION_FAILED
+```
+
+Only verified results may update confirmed facts or protected proposals.
+
+Unverified results may update:
+
+* execution history;
+* retry counters;
+* advisory observations;
+* open issues;
+* Control Exception records.
+
+They must not update authoritative facts or final decisions.
+
+Label unverified LLM observations clearly:
+
+```text
+Advisory observation — AIRO confirmation required
+```
+
+---
+
+# 9. Strengthen and restructure Case State
+
+Review the current State model and migrate it carefully.
+
+Separate:
+
+## Lifecycle
+
+```text
+NEW
+OPEN
+WORKING
+AWAITING_HUMAN
+AWAITING_EXTERNAL_EVENT
+CONTROL_EXCEPTION
+COMPLETED
+CANCELLED
+FAILED_SAFE
+```
+
+## Domain phase
+
+```text
+INTAKE
+EVIDENCE_REVIEW
+INPUT_CONFIRMATION
+ASSESSMENT
+CHALLENGE
+FINAL_DECISION
+PUBLICATION
+```
+
+Do not use one status field to represent both.
+
+The State should explicitly distinguish:
+
+* Case objective;
+* completion criteria;
+* confirmed facts;
+* candidate facts;
+* evidence claims and provenance;
+* mandatory evidence gaps;
+* evidence conflicts;
+* LLM advisory observations;
+* confirmed exceptions;
+* open objectives;
+* completed objectives;
+* pending actions;
+* completed actions;
+* failed actions;
+* prohibited actions;
+* action authorisations;
+* tool results;
+* verification results;
+* materiality proposal;
+* second-line proposal;
+* human decisions;
+* active Governance Loop;
+* expected external events;
+* automation profile and policy version;
+* execution budgets;
+* stale outputs;
+* dependency metadata;
+* policy, rules, tools, model, prompt and workflow versions;
+* append-only action and transition history.
+
+Do not continue using one combined list for:
+
+```text
+missing information
+LLM observations
+evidence conflicts
+confirmed exceptions
+```
+
+They have different governance significance.
+
+---
+
+# 10. Add an explicit Readiness Policy
+
+Before deterministic materiality and second-line engines run, perform a deterministic readiness check.
+
+It should determine whether:
+
+* questionnaire is complete;
+* required material facts are confirmed;
+* mandatory evidence is available;
+* material conflicts are resolved or formally accepted;
+* questionnaire and rule versions are current;
+* required dealbreaker interpretation has occurred;
+* inputs needed by both deterministic engines are present;
+* no stale dependency blocks calculation.
+
+Use a structured result:
+
+```python
+class ReadinessResult(BaseModel):
+    ready_for_engines: bool
+    blocking_gaps: list[str]
+    blocking_conflicts: list[str]
+    facts_requiring_confirmation: list[str]
+    permitted_next_actions: list[str]
+    rationale: str
+```
+
+Do not run risk engines against incomplete or unconfirmed inputs and present the result as current.
+
+---
+
+# 11. Make Human Governance exception-driven
+
+Retain the existing Human-in-the-loop controls and continue using LangGraph `interrupt()` and `Command(resume=...)`.
+
+Human governance must not be weakened.
+
+Change the main logic from a fixed Gate sequence into policy-triggered Governance Loops:
+
+```text
+EVIDENCE_RESOLUTION
+MATERIAL_FACT_CONFIRMATION
+EXCEPTION_INTERPRETATION
+FINAL_TRIAGE_DECISION
+PUBLICATION_APPROVAL
+CONTROL_EXCEPTION_REVIEW
+```
+
+The old Gate numbers may remain as UI/audit labels, but workflow logic must depend on:
+
+* Case state;
+* reason for judgement;
+* applicable policy;
+* active Governance Loop.
+
+Recommended initial production-like behaviour:
+
+* evidence Gate: only when a material gap, conflict or failed verification exists;
+* material-input Gate: when material facts require confirmation;
+* exception Gate: when an exception, dealbreaker or interpretation point exists;
+* final-triage Gate: mandatory for all Cases in Human-Governed and Conditional Review profiles;
+* publication Gate: mandatory for formal external writes;
+* control-exception Gate: mandatory when safe automated continuation is unavailable.
+
+Use dedicated interrupt nodes with no external side effects before `interrupt()`.
+
+Every interrupt payload should include:
+
+```text
+decision required
+trigger reason
+supporting evidence and citations
+applicable rule
+Coordinator recommendation
+uncertainty
+allowed decisions
+effect of each decision
+current Case/rule version
+```
+
+Validate all resumed human decisions for:
+
+* reviewer identity;
+* decision authority;
+* Case and Gate ID;
+* allowed action;
+* required rationale;
+* current state/rule version;
+* duplicate/replay handling;
+* segregation of duties where applicable.
+
+---
+
+# 12. Make Progressive Automation system-assigned
+
+Review current profile behaviour.
+
+In demonstration mode, it is acceptable to allow the user to select a profile to show different paths, but this must be explicitly labelled:
+
+```text
+Demo override — not production policy
+```
+
+For production-like behaviour:
+
+* default new Cases to `human_governed`;
+* assign the effective profile deterministically;
+* use approved pattern eligibility and policy version;
+* do not let the LLM select or increase the profile;
+* do not let a normal user increase the profile;
+* allow policy to downgrade autonomy when risk, uncertainty or exceptions increase;
+* preserve deterministic sampling for exception-based cases;
+* record the assignment rationale.
+
+Profiles must change actual Coordinator permissions, not only the UI sequence:
+
+```text
+human_governed
+conditional_review
+exception_based
+straight_through_demo
+```
+
+Retain `straight_through_demo` as clearly non-production demonstration functionality unless the current documentation already defines a stronger safe boundary.
+
+---
+
+# 13. Implement selective invalidation and replanning
+
+When questionnaire answers, evidence, policy, rules or versions change:
+
+1. identify affected facts;
+2. determine dependent outputs;
+3. mark only affected outputs stale;
+4. preserve unaffected verified work;
+5. create the necessary rework objectives;
+6. rerun only affected checks and engines;
+7. compare old and replacement results;
+8. require AIRO reconsideration if a material outcome changes.
+
+Example dependencies:
+
+```text
+questionnaire.personal_data
+→ personal-data evidence check
+→ evidence consistency
+→ materiality result
+→ second-line routing
+→ proposal
+→ review pack
+→ final decision
+→ publication draft
+```
+
+```text
+materiality rule version
+→ materiality result
+→ proposed governance route
+→ review pack
+→ final decision
+```
+
+Record:
+
+```text
+previous result
+reason for invalidation
+affected dependencies
+replacement required
+replacement result
+material change
+whether previous AIRO decision remains valid
+```
+
+Ensure stale results remain available in history but are never shown as current approved results.
+
+---
+
+# 14. Add external-event handling
+
+Implement a durable External Event Wait pattern for:
+
+* requested stakeholder evidence;
+* documents submitted through normal channels;
+* external workflow completion;
+* email response;
+* Confluence or SharePoint update;
+* second-line response;
+* future MARM response;
+* scheduled timeout or escalation.
+
+Use an event contract containing:
+
+```text
+event_type
+case_id
+correlation_id
+expected_source
+schema_version
+due_at
+timeout_action
+```
+
+Validate before resuming:
+
+* event type;
+* Case and correlation IDs;
+* source;
+* schema;
+* duplicate/replay;
+* current Case version;
+* artifact integrity;
+* whether the event is still expected.
+
+For the demo, provide a simulated external-event endpoint and UI control so users can demonstrate the pause/resume behaviour without real external integrations.
+
+---
+
+# 15. Replace generic ERROR handling with Control Exception
+
+Do not reduce all Coordinator failures to:
+
+```text
+status = ERROR
+```
+
+Introduce structured Control Exceptions:
+
+```text
+code
+reason
+failed action
+failed tool
+recoverable
+retry count
+budget state
+allowed recovery actions
+timestamp
+```
+
+Examples:
+
+* no permitted action;
+* unknown state;
+* action budget exhausted;
+* evidence-loop budget exhausted;
+* repeated verification failure;
+* unauthorised tool proposal;
+* stale policy/rule version;
+* failed external reconciliation;
+* invalid human response;
+* corrupted state.
+
+A Control Exception is a safe pause, not automatically a Case rejection.
+
+Allow policy-authorised recovery:
+
+```text
+retry
+select deterministic fallback
+return to AIRO
+wait for external remediation
+cancel
+fail safe
+```
+
+---
+
+# 16. Preserve and improve deterministic parallel engines
+
+Retain the independent nature of:
+
+```text
+Materiality Engine
+and
+Second-Line Trigger Engine
+```
+
+They may run in parallel when readiness and policy permit.
+
+They must produce separate, versioned outputs.
+
+Second-line engagement must not be derived only from the final materiality band.
+
+The combined proposal should record:
+
+```text
+materiality result and drivers
+validation route
+dealbreakers
+minimum-route rules
+second-line triggers
+trigger rationale
+evidence references
+rule versions
+result hashes
+current/stale status
+```
+
+AIRO retains final confirmation and override authority.
+
+---
+
+# 17. Upgrade the frontend UI to demonstrate the new design
+
+Do not only change backend architecture. The UI and demonstration Cases must visibly show the upgraded Agentic Coordinator behaviour.
+
+Retain useful existing tabs, but treat them as views over the same authoritative Case State—not independent workflow controllers.
+
+Recommended views:
+
+```text
+Coordinator Workspace
+Questionnaire
+Evidence
+Assessment
+Second-Line Engagement
+Review Pack
+Decision and Action History
+Technical Trace
+```
+
+## Coordinator Workspace
+
+Make this the primary Case page.
+
+Display:
+
+* Case objective;
+* lifecycle status;
+* domain phase;
+* effective automation profile;
+* profile assignment reason;
+* current open objective;
+* unresolved objectives;
+* Coordinator’s current action;
+* selected action and selection method:
+
+  * deterministic;
+  * bounded LLM recommendation;
+* why the action was selected;
+* Policy Supervisor’s allowed/prohibited actions;
+* current action/tool budget;
+* current evidence-loop count;
+* current Governance Loop;
+* pending external event;
+* Control Exception, if any;
+* completion criteria and progress.
+
+## Evidence and issue separation
+
+Display separate panels for:
+
+```text
+Mandatory evidence gaps
+Evidence conflicts
+LLM advisory observations
+Confirmed exceptions
+Confirmed facts
+Candidate facts awaiting confirmation
+```
+
+Do not merge them into one generic warning list.
+
+## Agent action timeline
+
+Show each cycle:
+
+```text
+Observed State
+Policy Decision
+Selected Action
+Authorisation
+Tool Execution
+Verification
+State Changes
+Invalidated Outputs
+Transition Decision
+```
+
+Use badges to distinguish:
+
+```text
+[STATE]
+[DET]
+[LLM]
+[TOOL]
+[VERIFY]
+[HITL]
+[EVENT]
+[END]
+```
+
+## Stale outputs
+
+Clearly show:
+
+* current results;
+* stale/superseded results;
+* reason for invalidation;
+* replacement status.
+
+Do not allow a stale materiality, second-line or review-pack result to appear current.
+
+## Human Governance panel
+
+Show:
+
+* decision required;
+* trigger reason;
+* rule;
+* evidence and citations;
+* Coordinator recommendation;
+* uncertainty;
+* allowed decisions;
+* effect of each decision;
+* rationale field;
+* reviewer;
+* decision history.
+
+## External event demonstration
+
+Provide UI controls to simulate:
+
+* stakeholder evidence received;
+* external response received;
+* timeout/escalation;
+* invalid correlation ID;
+* duplicate event.
+
+## Technical trace
+
+For team education, provide an expandable technical trace showing:
+
+* StateGraph node;
+* policy version;
+* action proposal;
+* authorisation record;
+* Tool Contract;
+* tool output;
+* verification output;
+* state diff;
+* next transition.
+
+Avoid exposing raw chain-of-thought. Show concise decision rationale and structured control records only.
+
+---
+
+# 18. Update demonstration Cases
+
+Review all existing sample Cases. Keep useful existing examples, but update or replace samples so the UI demonstrates every major feature.
+
+At minimum provide:
+
+## Case 1 — Standard low-risk Case
+
+Demonstrates:
+
+* routine evidence preparation;
+* deterministic action selection;
+* no evidence exception;
+* readiness check;
+* materiality and second-line engines;
+* final AIRO review;
+* controlled publication.
+
+## Case 2 — Multiple permitted evidence actions
+
+Demonstrates:
+
+* several evidence checks are available;
+* bounded LLM Action Recommender chooses one;
+* deterministic Authoriser approves it;
+* tool result is verified;
+* Coordinator continues the loop.
+
+## Case 3 — Questionnaire/evidence conflict
+
+Demonstrates:
+
+* questionnaire says no personal data;
+* evidence refers to names, email addresses or identifiers;
+* consistency checker finds the conflict;
+* citation verifier confirms the source;
+* Evidence Resolution Governance Loop is triggered;
+* AIRO amendment invalidates dependent outputs;
+* only affected work reruns.
+
+## Case 4 — Missing supplier evidence
+
+Demonstrates:
+
+* external supplier/foundation model;
+* required contract or due-diligence evidence missing;
+* Coordinator creates an evidence request;
+* Case enters External Event Wait;
+* simulated stakeholder evidence resumes the same Case;
+* relevant checks rerun.
+
+## Case 5 — Agentic-AI autonomy exception
+
+Demonstrates:
+
+* autonomous action capability;
+* autonomy and human-control evidence check;
+* missing kill switch, pause control or approval boundary;
+* Exception Interpretation Governance Loop;
+* elevated materiality/second-line triggers where deterministic rules require them.
+
+## Case 6 — Stale-output and selective-replanning Case
+
+Demonstrates:
+
+* materiality and second-line proposals initially generated;
+* new evidence changes one confirmed fact;
+* affected results become stale;
+* unrelated verified checks remain current;
+* only affected engines and review-pack sections regenerate;
+* previous AIRO decision becomes invalid if materially affected.
+
+## Case 7 — Tool verification failure
+
+Demonstrates:
+
+* malformed or unsupported LLM/tool result;
+* Result Verifier rejects it;
+* result does not update confirmed facts;
+* retry/fallback budget is applied;
+* unresolved failure enters AIRO or Control Exception.
+
+## Case 8 — Elevated/high-risk Case
+
+Demonstrates:
+
+* deterministic elevated materiality;
+* mandatory AIRO review;
+* mandatory second-line engagement;
+* no profile or Router may bypass protected decisions.
+
+## Progressive Automation examples
+
+Ensure samples also illustrate:
+
+```text
+human_governed
+conditional_review
+exception_based
+straight_through_demo
+```
+
+However, clearly distinguish:
+
+* policy-assigned profile;
+* demo override for teaching purposes.
+
+Each sample should explain:
+
+```text
+Expected path
+Expected dynamic actions
+Expected tools
+Expected exceptions
+Expected Governance Loops
+Expected final result
+What feature the sample demonstrates
+```
+
+Update the demo script accordingly.
+
+---
+
+# 19. API changes
+
+Review current APIs and add only the endpoints required by the new architecture.
+
+Likely requirements include:
+
+```text
+create Case
+start/resume Coordinator
+get current Case
+list Cases
+submit AIRO decision
+submit external event
+retry/recover Control Exception
+get action history
+get Policy Supervisor decision
+get stale/current results
+get Tool Registry metadata
+```
+
+Do not expose an endpoint that lets the UI directly execute an arbitrary tool.
+
+The UI requests a permitted Case action; the Coordinator and Policy Supervisor remain authoritative.
+
+Add idempotency and current-version checks to:
+
+* human decisions;
+* external events;
+* publication actions;
+* retryable consequential actions.
+
+---
+
+# 20. Tests and acceptance criteria
+
+Retain all valid existing tests and add comprehensive tests.
+
+## Baseline regression
+
+Prove that:
+
+* existing deterministic materiality outcomes remain unchanged unless intentionally documented;
+* existing second-line triggers remain unchanged unless intentionally documented;
+* existing evidence conflict examples still work;
+* existing Human Gates still protect relevant decisions;
+* current mock and Ollama modes still work;
+* Windows startup instructions still work.
+
+## Policy Supervisor
+
+Test that:
+
+* an action not returned by policy cannot execute;
+* an unknown action is rejected;
+* an unknown tool is rejected;
+* a mandatory action does not call the LLM;
+* no safe action creates a Control Exception;
+* budgets are enforced;
+* automation profile cannot be increased by the LLM or Case user.
+
+## Bounded Router
+
+Test that:
+
+* it is called only when multiple permitted actions exist;
+* output must use the allowlist;
+* malformed output uses safe fallback/escalation;
+* it cannot choose materiality, second-line, profile, Gate bypass or publication;
+* low-confidence recommendations are handled according to policy.
+
+## Authorisation
+
+Test that:
+
+* deterministic and LLM-selected actions both require authorisation;
+* stale-state actions are rejected;
+* missing input blocks execution;
+* external action requires explicit authority.
+
+## Tool Registry
+
+Test:
+
+* input/output schemas;
+* permission and authority classes;
+* timeout and retry behaviour;
+* idempotency;
+* version capture.
+
+## Result Verification
+
+Test that:
+
+* unsupported citations are rejected;
+* prompt injection inside evidence is treated as untrusted content;
+* unauthorised risk decisions are rejected;
+* unverified results cannot update confirmed facts;
+* failed results remain in execution history;
+* stale tool output cannot become current.
+
+## Replanning and invalidation
+
+Test that:
+
+* changed questionnaire facts invalidate only dependent outputs;
+* new evidence triggers affected checks;
+* unrelated verified results remain current;
+* review pack cannot use stale results;
+* material change invalidates an affected prior AIRO decision;
+* previous and replacement results remain auditable.
+
+## Human Governance
+
+Test that:
+
+* routine Cases do not enter meaningless evidence/exception Gates;
+* material conflicts trigger the correct Governance Loop;
+* final triage remains mandatory under Human-Governed and Conditional Review;
+* publication approval remains mandatory for formal external writes;
+* invalid human actions are rejected;
+* rationale and authority requirements are enforced;
+* duplicate decisions are idempotently rejected or ignored.
+
+## External events
+
+Test that:
+
+* correct event resumes the correct Case;
+* invalid correlation ID cannot resume;
+* duplicate event is idempotent;
+* stale event cannot overwrite current state;
+* timeout invokes the configured escalation.
+
+## Control Exception
+
+Test:
+
+* loop budget exhaustion;
+* tool budget exhaustion;
+* repeated verification failure;
+* unknown state;
+* safe recovery;
+* authorised cancellation;
+* no silent continuation after a control failure.
+
+## Completion
+
+Test that a Case cannot complete while:
+
+* mandatory objectives remain;
+* blocking gaps or conflicts remain;
+* required human decisions are missing;
+* current deterministic results are absent;
+* review pack is stale;
+* consequential actions are unreconciled.
+
+---
+
+# 21. Documentation updates
+
+Review and update all Markdown documentation so it matches the final implementation.
+
+At minimum include:
+
+```text
+README.md
+docs/ARCHITECTURE.md
+docs/DEMO_SCRIPT.md
+docs/TEAM_DEVELOPMENT_GUIDE.md
+docs/CURRENT_AGENT_DESIGN_REVIEW.md
+```
+
+Document:
+
+* before-versus-after architecture;
+* why this is now an Agentic Workflow;
+* generic control loop;
+* AI Risk Triage specialisation;
+* deterministic versus LLM versus human responsibilities;
+* Policy Supervisor;
+* Bounded Action Recommender;
+* Tool Registry;
+* Result Verification;
+* selective replanning;
+* external events;
+* Control Exceptions;
+* Progressive Automation;
+* Human Governance Loops;
+* UI user journey;
+* each demonstration Case;
+* how to run on Windows;
+* how to run with mock LLM;
+* how to run with Ollama;
+* how to run tests;
+* known limitations;
+* production-hardening requirements.
+
+Add Mermaid diagrams that match the actual implemented graph. Do not document features that are not implemented.
+
+---
+
+# 22. Implementation constraints
+
+* Preserve one Coordinator; do not create multiple independent agents.
+* Keep risk decisions deterministic or human-owned.
+* Do not replace deterministic logic with prompts.
+* Do not silently change materiality or second-line business rules.
+* Use Pydantic structured models for LLM/action/tool/verification outputs.
+* Keep LLM provider abstraction and Ollama/mock support.
+* Preserve local development and Windows compatibility.
+* Keep external writes disabled or local-demo-only by default.
+* Use least privilege and read-only tools by default.
+* Keep `interrupt()` nodes free of non-idempotent side effects.
+* Do not expose raw chain-of-thought.
+* Keep complete structured rationale, evidence, action and audit records.
+* Fail safely when state, authority or result integrity is uncertain.
+* Preserve unrelated existing functionality and user changes.
+* Do not delete files merely because they appear unused until references, tests and documentation have been checked.
+* Refactor incrementally and keep the repository runnable after each phase.
+
+---
+
+# 23. Recommended implementation sequence
+
+Use this order:
+
+## Phase 1 — Review and regression baseline
+
+* repository review;
+* current architecture report;
+* baseline tests;
+* preserve current behaviours.
+
+## Phase 2 — State and policy foundation
+
+* lifecycle/domain-phase separation;
+* objective and issue models;
+* Policy Supervisor;
+* structured SupervisorDecision;
+* action budgets;
+* system-assigned effective profile.
+
+## Phase 3 — Governed action execution
+
+* ActionProposal;
+* deterministic selector;
+* bounded LLM recommender;
+* Action Authoriser;
+* Tool Registry;
+* Tool Contracts;
+* executor.
+
+## Phase 4 — Verification and replanning
+
+* Result Verifier;
+* citation checks;
+* issue-type separation;
+* dependency graph;
+* selective invalidation;
+* state updater;
+* transition evaluator.
+
+## Phase 5 — Exception-driven governance
+
+* state-triggered Governance Loops;
+* richer interrupt payloads;
+* Human Decision Validator;
+* Control Exception;
+* completion evaluator.
+
+## Phase 6 — Events, UI and demonstration Cases
+
+* external-event simulation;
+* Coordinator Workspace;
+* action timeline;
+* stale-output display;
+* Governance panel;
+* updated sample Cases;
+* updated demo script.
+
+## Phase 7 — Final verification
+
+* full test suite;
+* lint/format/type checks;
+* manual demo walkthrough;
+* documentation consistency review;
+* remove only genuinely obsolete code after confirming no references remain.
+
+---
+
+# 24. Required final response
+
+When implementation is complete, provide:
+
+1. a concise summary of the original architecture found;
+2. what was already implemented and reused;
+3. the gaps identified;
+4. files added, changed, moved or removed;
+5. final StateGraph topology;
+6. final Case State structure;
+7. how the Policy Supervisor works;
+8. how deterministic and LLM action selection work;
+9. how tools are authorised and verified;
+10. how selective replanning works;
+11. how Human Governance remains protected;
+12. how Progressive Automation is assigned;
+13. how the UI demonstrates the changes;
+14. list of demonstration Cases and expected paths;
+15. test, lint, type-check and manual-demo results;
+16. known limitations;
+17. recommended next production-hardening steps.
+
+The final implementation should be understandable as a reference architecture for the team—not merely functional code.
+
+The completed system should be accurately describable as:
+
+> The AI Risk Triage Case Coordinator is a single, policy-supervised and exception-driven Agentic Workflow. It observes authoritative Case State, identifies unresolved objectives, selects and executes only permitted evidence-processing actions, invokes approved deterministic materiality and second-line engines, verifies results, selectively replans when facts or evidence change, and pauses at meaningful AIRO Governance Loops. AIRO retains protected judgement over final materiality, second-line engagement, overrides and formal publication.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Now Review all existing sample Cases. Update or replace samples so the codes and UI demonstrates every major feature, as in below:
+
+At minimum provide:
+
+## Case 1 — Standard low-risk Case
+
+Demonstrates:
+
+* routine evidence preparation;
+* deterministic action selection;
+* no evidence exception;
+* readiness check;
+* materiality and second-line engines;
+* final AIRO review;
+* controlled publication.
+
+## Case 2 — Multiple permitted evidence actions
+
+Demonstrates:
+
+* several evidence checks are available;
+* bounded LLM Action Recommender chooses one;
+* deterministic Authoriser approves it;
+* tool result is verified;
+* Coordinator continues the loop.
+
+## Case 3 — Questionnaire/evidence conflict
+
+Demonstrates:
+
+* questionnaire says no personal data;
+* evidence refers to names, email addresses or identifiers;
+* consistency checker finds the conflict;
+* citation verifier confirms the source;
+* Evidence Resolution Governance Loop is triggered;
+* AIRO amendment invalidates dependent outputs;
+* only affected work reruns.
+
+## Case 4 — Missing supplier evidence
+
+Demonstrates:
+
+* external supplier/foundation model;
+* required contract or due-diligence evidence missing;
+* Coordinator creates an evidence request;
+* Case enters External Event Wait;
+* simulated stakeholder evidence resumes the same Case;
+* relevant checks rerun.
+
+## Case 5 — Agentic-AI autonomy exception
+
+Demonstrates:
+
+* autonomous action capability;
+* autonomy and human-control evidence check;
+* missing kill switch, pause control or approval boundary;
+* Exception Interpretation Governance Loop;
+* elevated materiality/second-line triggers where deterministic rules require them.
+
+## Case 6 — Stale-output and selective-replanning Case
+
+Demonstrates:
+
+* materiality and second-line proposals initially generated;
+* new evidence changes one confirmed fact;
+* affected results become stale;
+* unrelated verified checks remain current;
+* only affected engines and review-pack sections regenerate;
+* previous AIRO decision becomes invalid if materially affected.
+
+## Case 7 — Tool verification failure
+
+Demonstrates:
+
+* malformed or unsupported LLM/tool result;
+* Result Verifier rejects it;
+* result does not update confirmed facts;
+* retry/fallback budget is applied;
+* unresolved failure enters AIRO or Control Exception.
+
+## Case 8 — Elevated/high-risk Case
+
+Demonstrates:
+
+* deterministic elevated materiality;
+* mandatory AIRO review;
+* mandatory second-line engagement;
+* no profile or Router may bypass protected decisions.
+
+## Progressive Automation examples
+
+Ensure samples also illustrate:
+
+```text
+human_governed
+conditional_review
+exception_based
+straight_through_demo
+```
+
+However, clearly distinguish:
+
+* policy-assigned profile;
+* demo override for teaching purposes.
+
+Each sample should explain:
+
+```text
+Expected path
+Expected dynamic actions
+Expected tools
+Expected exceptions
+Expected Governance Loops
+Expected final result
+What feature the sample demonstrates
+```
+
+Update the codes and ui accordingly.
+

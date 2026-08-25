@@ -70,7 +70,7 @@ def test_router_rejections_fail_closed_without_tool_execution(coordinator, sampl
     trace = state["agent_action_trace"][-1]
 
     assert state["demo_controls"]["router_mode"] == mode
-    assert case["pending_gate"]["gate_id"] == "evidence_request"
+    assert case["pending_gate"]["gate_id"] == "control_exception_review"
     assert state["tool_call_count"] == 0
     assert trace["invocation"] is None
     assert trace["result"] is None
@@ -97,7 +97,7 @@ def test_prompt_injection_and_invalid_citation_are_preserved_as_security_issues(
     assert extraction_trace["verification"]["disposition"] == "escalate"
     assert extraction_trace["verification"]["checks"]["citations_exist"] is False
     assert any(item["category"] == "security" for item in state["open_issues"])
-    assert case["pending_gate"]["gate_id"] == "evidence_request"
+    assert case["pending_gate"]["gate_id"] == "control_exception_review"
     assert not state.get("final_outcome")
 
 
@@ -108,10 +108,74 @@ def test_action_budget_exhaustion_stops_and_records_escalation(coordinator):
     assert state["max_tool_calls"] == 1
     assert state["tool_call_count"] == 1
     assert state["remaining_tool_calls"] == 0
-    assert len(state["agent_action_trace"]) == 2
-    assert state["agent_action_trace"][-1]["proposal"]["selected_action"] == "escalate_to_airo"
-    assert state["agent_action_trace"][-1]["verification"]["disposition"] == "escalate"
+    assert len(state["agent_action_trace"]) == 1
+    assert (
+        state["agent_action_trace"][-1]["proposal"]["selected_action"]
+        == "extract_submitted_evidence"
+    )
+    assert state["control_exception"]["code"] == "TOOL_BUDGET_EXHAUSTED"
+    assert case["pending_gate"]["gate_id"] == "control_exception_review"
+
+
+def test_malformed_tool_result_uses_retry_budget_and_cannot_update_facts(coordinator):
+    case = _start(coordinator, "malformed_tool_result")
+    state = case["state"]
+
+    assert case["pending_gate"]["gate_id"] == "control_exception_review"
+    assert state["tool_call_count"] == 2
+    assert state["retry_counts"]["evidence_extractor"] == 1
+    assert [item["disposition"] for item in state["verification_results"]] == [
+        "retry",
+        "escalate",
+    ]
+    assert state["latest_verification"]["checks"]["output_schema_valid"] is False
+    assert not state.get("candidate_facts")
+    assert not state.get("confirmed_facts")
+    assert state["control_exception"]["code"] == "NO_PERMITTED_ACTION"
+
+
+def test_publication_amendment_invalidates_prior_airo_decision_selectively(coordinator):
+    case = _start(coordinator, "selective_replanning")
+    case_id = case["case_id"]
+    for action in ("confirm", "proceed", "confirm"):
+        case = coordinator.resume(
+            case_id,
+            HumanDecision(action=action, rationale=f"AIRO records {action}."),
+        )
+    assert case["pending_gate"]["gate_id"] == "publication"
+    previous_final = case["state"]["final_outcome"]
+    before = case["state"]["agent_action_trace"]
+    extraction_count = sum(
+        item["proposal"]["selected_action"] == "extract_submitted_evidence" for item in before
+    )
+
+    case = coordinator.resume(
+        case_id,
+        HumanDecision(
+            action="amend_material_fact",
+            answer_updates={"personal_data": True},
+            rationale="New reviewed evidence confirms attendee identifiers are in scope.",
+        ),
+    )
+    state = case["state"]
+    invalidated = {item["invalidated_result"] for item in state["invalidations"]}
+
     assert case["pending_gate"]["gate_id"] == "evidence_request"
+    assert {"materiality_result", "lod2_result", "review_pack", "final_outcome"} <= invalidated
+    assert not state["final_outcome"]
+    assert "final_outcome" in state["stale_outputs"]
+    assert any(
+        item["result_type"] == "final_outcome" and item["value"] == previous_final
+        for item in state["superseded_results"]
+    )
+    assert (
+        sum(
+            item["proposal"]["selected_action"] == "extract_submitted_evidence"
+            for item in state["agent_action_trace"]
+        )
+        == extraction_count
+    )
+    assert state["material_change_requires_airo_review"] is True
 
 
 def test_selective_replanning_invalidates_engines_and_preserves_history(coordinator):

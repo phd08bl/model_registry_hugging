@@ -1,210 +1,244 @@
-# Current architecture and governance design
+# Current Architecture and Governance Design
 
-This document describes the implemented repository. Future production ideas are identified
-as such. All rules and Progressive Automation policies in the current code are illustrative
-demo rules; AIRO retains final decision authority.
+This is the authoritative description of the implemented local demonstration. All
+materiality, 2LoD, pattern, profile, sampling and autonomy rules are illustrative demo rules.
 
 ## Architectural decision
 
-There is one stateful **AIRO Case Coordinator**. Evidence processing, policy supervision,
-tool execution, verification, deterministic engines, review-pack generation and local
-publication are capabilities of that Coordinator—not independent agents.
+One stateful AIRO Case Coordinator owns one LangGraph `StateGraph`. A deterministic Policy
+Supervisor evaluates the complete current Case State and decides what is permitted. When no
+action is mandatory, a bounded LLM may recommend exactly one allowlisted evidence action.
+An immediate deterministic Action Authorizer checks that proposal before the approved Tool
+Registry can execute it. Results are verified before state is updated. AIRO retains authority
+for facts, exceptions, final triage and local publication.
 
-The Coordinator qualifies as a human-governed agentic workflow because it observes a Case,
-plans bounded work, selects between permitted actions, uses tools, evaluates results, loops,
-replans after change and pauses/resumes long-running work. It has constrained Code Agency:
-it can coordinate evidence preparation and local records, but it cannot own or expand its
-authority. See [Agent design](AGENT_DESIGN.md).
+There are no independent risk-decision agents and no route by which an LLM can set
+materiality, 2LoD engagement, automation profile, policy, a Gate outcome or final approval.
 
 ## Runtime topology
 
 ```mermaid
 flowchart TD
-    UI[Packaged HTML/CSS/JavaScript UI] --> API[FastAPI routes]
-    API --> C[CaseCoordinator]
-    C --> DB[(SQLite Case and audit store)]
-    C --> CP[(SQLite LangGraph checkpoints)]
-    C --> G[One Triage StateGraph]
-    G --> S[PolicySupervisor]
-    S --> R[BoundedActionRouter]
-    S --> TR[ToolRegistry]
-    R --> L[Selected LLMClient]
-    TR --> L
-    TR --> V[ResultVerifier]
-    TR --> M[Materiality engine]
-    TR --> D[Independent 2LoD engine]
-    G --> H[AIRO interrupt Gates]
-    H --> G
-    G --> P[Review pack and local publication record]
+    UI[AIRO Case Workspace] --> API[FastAPI Case API]
+    API --> CO[One Case Coordinator]
+    CO --> SG[LangGraph StateGraph]
+    SG --> PS[Deterministic Policy Supervisor]
+    PS -->|mandatory action| AU[Immediate Action Authorizer]
+    PS -->|recommendation allowed| LR[Bounded LLM Recommender]
+    LR --> AU
+    AU --> TR[Approved Tool Registry]
+    TR --> VR[Deterministic Result Verifier]
+    VR --> SG
+    SG --> RE[Readiness Guard]
+    RE --> ME[Materiality Engine]
+    RE --> LE[Independent 2LoD Engine]
+    SG --> HG[AIRO Governance Loop interrupt]
+    HG --> SG
+    SG --> EW[Durable External Event Wait]
+    EW --> SG
+    SG --> CE[Control Exception review]
+    CE --> SG
+    SG --> CG[Completion Guard]
+    CO --> DB[(Local Case and audit SQLite)]
+    SG --> CP[(LangGraph SQLite checkpoints)]
 ```
-
-The UI does not control workflow progression. It displays saved Case state and submits only
-the allowed action at the current Gate.
 
 ## StateGraph control flow
 
 ```mermaid
 flowchart TD
-    N[normalise_intake] --> P[plan_evidence_actions]
-    P --> O[observe_case]
-    O --> S[supervise_actions]
-    S --> R[route_evidence_action]
-    R --> A[validate_action]
-    A -->|permitted tool| X[execute_tool]
-    A -->|rejected or escalation| J[record_rejected_action]
-    X --> V[verify_tool_result]
-    V --> U[update_case_state]
-    U --> Q[reassess_case]
-    J --> Q
-    Q -->|work and budget remain| O
-    Q -->|gap/conflict/failure| E[evidence_gate]
-    Q -->|ready| I[input_gate]
-    E -->|new evidence| P
-    I --> F[run_engines]
-    F --> M[materiality_engine]
-    F --> L[lod2_engine]
-    M --> C[combine_proposal]
-    L --> C
-    C --> H[challenge_assessment]
-    H --> G3[exception_gate]
-    G3 --> RP[generate_review_pack]
-    RP --> G4[final_gate]
-    G4 --> PD[prepare_publication]
-    PD --> G5[publication_gate]
-    G5 --> Z[publish local record]
+    I[Normalise intake] --> P[Plan evidence objectives]
+    P --> O[Observe full Case State]
+    O --> S[SupervisorDecision]
+    S -->|mandatory| D[Deterministic selector]
+    S -->|choice permitted| L[LLM recommends one action]
+    D --> A[Action Authorizer]
+    L --> A
+    A -->|authorized| T[Execute registered tool]
+    T --> V[Verify result]
+    V --> U[Update governed state]
+    U --> R[Reassess]
+    R -->|work remains| O
+    R -->|ordinary gap or conflict| G1[Evidence Resolution loop]
+    R -->|supplier artifact missing| E[External Event Wait]
+    E -->|valid correlated event| P
+    E -->|timeout| C[Control Exception review]
+    A -->|rejected| C
+    S -->|no safe transition or budget| C
+    R -->|evidence ready| G2[Material Fact Confirmation if applicable]
+    G2 --> Q[Deterministic Readiness Guard]
+    Q -->|blocked| G1
+    Q -->|ready| M[Materiality and 2LoD engines]
+    M --> H[Bounded advisory challenge]
+    H -->|interpretation point| G3[Exception Interpretation loop]
+    H -->|none| RP[Generate review pack]
+    G3 --> RP
+    RP --> G4[Final Triage Decision]
+    G4 --> PD[Prepare local publication draft]
+    PD --> G5[Publication Approval if applicable]
+    G5 --> PUB[Local demo publication]
+    PUB --> END[Deterministic Completion Guard]
+    END -->|all criteria true| DONE[COMPLETED]
+    END -->|blocked| C
 ```
 
-`run_engines` is an intentional fork marker: the materiality and 2LoD nodes write distinct
-state fields in parallel, then join at `combine_proposal`. All node and edge names above
-match `TriageGraphFactory.build()`.
+Governance Loops are exception-driven. A clean human-governed Case still requires its
+applicable material-fact, final-decision and publication decisions, but it does not create an
+empty exception-interpretation interrupt. Evidence Resolution, External Event Wait and
+Control Exception review appear only when their trigger exists.
 
-## Authoritative Case state and persistence
+## Case state, lifecycle and persistence
 
-`TriageState` is a `TypedDict` containing:
+`app/state.py` separates:
 
-- identity, lifecycle, thread ID and system-assigned profile;
-- questionnaire, evidence and submitted/confirmed facts;
-- evidence claims, deterministic gaps, advisory findings and open issues;
-- objective, plan, action statuses, budgets, retries and tool trace;
-- materiality, 2LoD and combined proposals;
-- AIRO decisions, Gate/autonomy records and final outcome;
-- invalidations, superseded values and current authoritative results; and
-- workflow, prompt, rule, questionnaire and LLM runtime versions.
+- `lifecycle_status`: `NEW`, `OPEN`, `WORKING`, `AWAITING_HUMAN`,
+  `AWAITING_EXTERNAL_EVENT`, `CONTROL_EXCEPTION`, `COMPLETED`, `CANCELLED` or
+  `FAILED_SAFE`;
+- `domain_phase`: intake, evidence review, input confirmation, assessment, challenge, final
+  decision or publication;
+- compatibility `status`: a UI/work-queue label retained for existing callers;
+- candidate facts, AIRO-confirmed facts, deterministic gaps/conflicts, advisory observations
+  and confirmed exceptions as separate fields;
+- objectives, plans, authorizations, invocations, results and verification records;
+- current, stale, invalidated and superseded outputs;
+- human decisions, external events, Control Exceptions and transition history;
+- Case State, rule, workflow, prompt, provider and tool-contract versions.
 
-The Case ID is also the LangGraph thread ID. `CaseRepository` stores the operational Case,
-pending Gate and append-only demonstration audit. `SqliteSaver` stores graph checkpoints.
-Both databases are created automatically; neither is source or required seed data. A paused
-Case can resume after Coordinator restart, while a terminal Case remains read-only.
+`CaseRepository` stores snapshots and append-only local audit events. `SqliteSaver` stores the
+LangGraph checkpoint required by `interrupt()`/`Command(resume=...)`. Both databases are
+generated local artifacts; neither is required in a fresh repository.
 
-## Deterministic supervisor and bounded LLM router
+`current_action_proposal`, `current_action_authorisation` and
+`current_tool_invocation` are transient execution fields. After a completed or rejected
+attempt is written to `agent_action_trace`, these fields are cleared. The Coordinator then
+recomputes the supervisor decision after projecting a Gate or external-event interrupt. This
+prevents the workspace from presenting a historical tool action or pre-pause allowlist as the
+current Case instruction.
 
-`PolicySupervisor` is the authority boundary. It:
+## Supervisor, recommender and Action Authorizer
 
-- assigns the maximum and effective profile from an explicit governed fixture registry;
-- defaults every normal Case to `human_governed`;
-- downgrades but never upgrades an effective profile;
-- orders pending evidence objectives;
-- supplies exact action/tool allowlists;
-- enforces tool-call/evidence-cycle budgets and confidence;
-- validates the single router proposal;
-- asks the autonomy engine whether each Gate is required; and
-- fails unknown or exhausted states closed to AIRO.
+`PolicySupervisor.supervise()` is pure deterministic control code. Its structured decision
+records allowed/prohibited actions, allowed tools, mandatory action, whether an LLM
+recommendation is permitted, active Governance Loop, expected external event, readiness,
+four remaining budgets, effective profile, completion candidacy and any Control Exception.
 
-When one action is permitted, `BoundedActionRouter` selects it deterministically without an
-LLM call. When several are permitted, the LLM returns one typed `ActionProposal`. The
-approved action contract—not model-authored fields—binds its tool and inputs before policy
-validation. The router never executes a tool or mutates state.
+The LLM receives only actions/tools made available by the supervisor and returns one typed
+`ActionProposal`. It cannot execute. `ActionAuthoriser` checks action/tool match,
+registration, required inputs, data permission, policy/rule versions, budgets, confidence,
+active human authority, profile and external-action authority immediately before execution.
+Failure is auditable and enters Control Exception handling without a tool call.
 
-The mock, Ollama, OpenAI and OpenAI-compatible modes implement one `LLMClient` contract and
-reuse the same prompts. LLM output is locally Pydantic-validated. Evidence is untrusted input.
-The LLM may extract, challenge and route evidence work; it may not determine materiality,
-2LoD, profiles, Gate bypass, final approval, rules or publication authority. See the
-[LLM provider guide](LLM_PROVIDER_GUIDE.md).
+## Tool registry and verification
 
-## Typed tool registry and verification
+Every `ToolContract` states identity/version, authority class, schemas, data permissions,
+read-only/external-action boundary, allowed profiles, timeout/retry policy, result verifier and
+owner. Calls contain Case and rule versions plus an idempotency key.
 
-`ToolRegistry` is the single invocation boundary for the tools used by the graph. Its active
-contracts cover evidence extraction/consistency, RAG/autonomy/supplier observations,
-citation checks, bounded challenge, both deterministic engines and review-pack generation.
-Each contract specifies identity/version, purpose, schema, permission, risk, timeout,
-retries, idempotency and allowed profiles.
+`ResultVerifier` records `VERIFIED`, `VERIFIED_WITH_LIMITATIONS`, `ADVISORY_ONLY`,
+`REJECTED` or `EXECUTION_FAILED`. Checks cover identity/version, confidence, citations and
+support, the declared output schema, untrusted-evidence authority, unresolved conflicts and
+prohibited external/rule changes. A malformed result uses only its bounded contract retry;
+an unresolved failure enters Control Exception review. Only verified or explicitly labelled
+advisory output updates its state field.
 
-`ResultVerifier` checks status, Case/tool identity and version, confidence, citation lines,
-source presence, preservation of conflicts, unauthorised external-action flags and obvious
-rule/Gate manipulation text. Semantic evidence results remain explicitly advisory because
-deterministic checks cannot prove their meaning is correct. Rejected proposals have trace
-records but no invocation or tool result.
+## Deterministic engines and readiness
 
-## Deterministic risk engines
+The readiness guard blocks engine execution until the questionnaire is valid/current,
+mandatory gaps and conflicts are governed, required material facts are confirmed, and input
+dependencies are current. Materiality and 2LoD then run independently through registered
+tool contracts. Result hashes, drivers, dealbreakers, route rules, triggers and rule versions
+are combined as a proposal, not a final decision. All engine rules are illustrative.
 
-`calculate_materiality()` applies transparent scores, thresholds, dealbreakers and minimum
-routes. `calculate_2lod_triggers()` separately maps questionnaire answers to proposed
-specialist teams. Neither engine reads LLM conclusions. Both outputs are versioned proposals
-and all rules are illustrative; AIRO confirms or overrides the final outcome with rationale.
+## Human decisions, events and replay safety
 
-Backtesting and sensitivity call the materiality engine as diagnostics. They report possible
-false lows/highs and answer influence; they never mutate code, configuration or Case rules.
+Each human decision has an ID, reviewer/role/authority, Case/Governance Loop/Gate IDs, Case
+State and rule versions, action, rationale and timestamp. Stale, mismatched or replayed
+decisions are rejected.
 
-## AIRO interrupts
+Each interrupt also carries a typed, Gate-independent human-task contract. `required_inputs`
+identifies each blocking item, required response/artifact, relevant questionnaire field,
+current and evidence-supported values, review items, citations and accepted resolutions.
+`action_impacts` describes the required fields and the expected state changes, selective
+reruns, preserved current work and next step for every allowed decision. These records are
+deterministically derived from authoritative Case State; they are decision support, not an
+LLM judgement or a second workflow controller.
 
-The five possible Gate types are evidence request, material input confirmation, exception
-resolution, final triage and local publication. A Gate payload records its ID/version,
-decision, reason, evidence/citations, rule evaluation, uncertainty, allowed actions, action
-effects, rationale requirements and decision authority.
+External Event Wait is a machine wait, not a disguised Human Gate. Its contract declares
+event type, Case ID, correlation ID, source, schema, due time, timeout action and Case State
+version. A valid simulated stakeholder-evidence or external-response event appends evidence
+and selectively replans; wrong
+correlation/source/schema/version/integrity fails closed; duplicate IDs are idempotent; timeout
+creates a Control Exception.
 
-Graph nodes call LangGraph `interrupt()`. `CaseCoordinator.resume()` validates that the Case
-is waiting, the submitted action is allowed and all action-specific evidence/override/
-rationale fields are present before `Command(resume=...)`. Interrupt nodes contain no
-external side effects because LangGraph restarts the node on resume.
+Control Exception review exposes only recovery actions possible under remaining budgets.
+AIRO may authorize retry, deterministic fallback, external wait, cancellation or failed-safe
+closure as applicable. A workflow failure is not a risk rejection.
 
-## Selective replanning and invalidation
+## Invalidation, completion and publication
 
-Evidence-only change archives and invalidates derived evidence, challenge, review-pack and
-prior final/publication outputs while retaining deterministic engines whose questionnaire
-inputs did not change. A risk-answer change also invalidates materiality, 2LoD and the
-combined proposal. Old values move to `superseded_results`; an explicit invalidation record
-captures cause, version and material-change effect. Only re-executed results return to
-`current_authoritative_results`.
+Evidence or questionnaire changes create invalidation records, retain superseded values and
+schedule dependent evidence actions. Material questionnaire changes invalidate both engines
+and later approvals. Gate 5 can record a material-fact amendment before publication; this
+supersedes the prior AIRO final decision and returns only affected work to the evidence loop.
+Recomputed outputs clear their stale marker.
 
-This dependency-aware path prevents both stale approvals and unnecessary full resets.
+Each evidence/action cycle records the StateGraph node, observed state, Policy Supervisor
+decision, selected action and method, authorisation, full governed Tool Contract, invocation,
+tool output, verification, before/after state diff, invalidated outputs and next transition.
+The Technical Trace renders these structured records with `[STATE]`, `[DET]`, `[LLM]`,
+`[TOOL]`, `[VERIFY]`, `[HITL]`, `[EVENT]` and `[END]` badges; it never exposes hidden
+chain-of-thought. Action cycles and the supporting human-decision, correlated-event,
+StateGraph-transition and completion cycles are expandable. The Coordinator Workspace also
+lists the configured completion contract before the terminal evaluation runs and shows the
+latest deterministic check result afterward.
 
-## Publication boundary
+The UI's **Case journey** is deliberately not labelled as the StateGraph. It is a read-only
+projection of `domain_phase` with `lifecycle_status`, the active Governance Loop, Gate,
+external-event contract, Control Exception and stale-output overlays. A Gate is shown as a
+control condition attached to a phase rather than as an independent workflow controller.
+Invalidation can therefore mark downstream phases stale and the current phase reopened
+without falsely resetting progress to Intake. The real graph node and transition sequence is
+available only in Technical Trace.
 
-`prepare_publication` creates a structured local draft. The publication Gate controls its
-approval unless the explicitly eligible `straight_through_demo` fixture is allowed by
-illustrative policy. `publish` adds a `local-demo://` reference and closes the Case. It makes
-no network request and has no credentials.
+The presentation layer follows progressive disclosure. The Coordinator Workspace keeps the
+current action, lifecycle, proposals, Governance Loop, Gate decisions and completion progress
+visible; budgets, allowlists and recent execution history are expandable. Questionnaire and
+deterministic-engine views render domain labels and summaries before technical records. Gate
+forms render the typed blocking tasks first, followed by allowed-decision cards, guided inputs
+for common corrections and a before-submit impact preview. Rule, evidence, uncertainty,
+history and the advanced JSON fallback remain expandable. The Human Governance card uses the
+same document scroll as the rest of the workspace instead of a nested viewport-height scroll;
+the resume shortcut moves keyboard focus directly to the selected decision. The impact summary
+stays compact until expanded, and narrow layouts retain the same natural document flow.
+Evidence panels show counts and short previews, while longer lists and full typed payloads stay
+collapsed. The tab interface exposes keyboard navigation and visible focus states.
+`UI_ASSET_VERSION` is injected into
+CSS/JavaScript URLs and demo static responses use `Cache-Control: no-store` so incompatible
+frontend files cannot be mixed by a browser cache.
 
-Real Confluence, SharePoint, email or task adapters are not implemented. Those are future
-production considerations requiring least-privilege credentials, target restrictions,
-idempotency, approval, audit, retry, data and security controls.
+The completion guard permits `COMPLETED` only when objectives/actions are closed, blocking
+issues and Control Exceptions are absent, both risk proposals and review pack are current, a
+final decision exists and local publication is reconciled.
+
+Publication creates an idempotent `local-demo://` record only. Confluence, SharePoint, email
+and task-system writes are not implemented. Backtesting/sensitivity never changes live rules.
 
 ## Main module responsibilities
 
 | Module | Responsibility |
 |---|---|
-| `app/main.py` | FastAPI routes and static UI serving |
-| `app/coordinator.py` | Creation, start/resume validation, snapshots and application audit |
-| `app/database.py` | Local operational Case and audit persistence |
-| `app/graph.py` | StateGraph nodes, routing, loops, Gates and local publication |
-| `app/state.py` | Authoritative graph-state keys |
-| `app/schemas.py` | Typed API, action, tool, trace and decision contracts |
-| `app/versions.py` | Central runtime/version identifiers |
-| `app/agent/policy.py` | Deterministic permissions, budgets, profile assignment and Gate interface |
-| `app/agent/router.py` | Single bounded action recommendation |
-| `app/agent/tools.py` | Active approved-tool contracts and invocation |
-| `app/agent/verifier.py` | Deterministic result checks and advisory limits |
-| `app/agent/interrupts.py` | Consistent AIRO Gate payloads |
-| `app/agent/invalidation.py` | Dependency-aware invalidation/supersession |
-| `app/engines/` | Illustrative autonomy, materiality and independent 2LoD rules |
-| `app/llm/` | Provider-neutral contract, prompts, registry and adapters |
-| `app/services/` | Evidence checks, calibration and review-pack assembly |
-| `app/samples.py` | Typed governed fixture catalogue and expected teaching metadata |
+| `app/graph.py` | StateGraph nodes, routing, Governance Loops, events, recovery and completion |
+| `app/coordinator.py` | Case service, version/replay validation, checkpoints and audit |
+| `app/state.py` / `app/schemas.py` | Authoritative state and typed contracts |
+| `app/agent/policy.py` | Full-state supervision and profile assignment |
+| `app/agent/router.py` / `authorizer.py` | Bounded recommendation and immediate authorization |
+| `app/agent/tools.py` / `verifier.py` | Capability gateway and result verification |
+| `app/agent/readiness.py` / `completion.py` | Engine and terminal guards |
+| `app/agent/invalidation.py` | Dependency-aware invalidation and selective rework |
+| `app/engines/` | Illustrative autonomy, materiality and 2LoD rules |
+| `app/llm/` | Mock, Ollama, OpenAI and compatible provider adapters |
+| `app/main.py` | FastAPI contracts and packaged static workspace |
+| `app/versions.py` | Central application, state, policy, event, tool and rule versions |
 
-## Production boundary
-
-The implemented system is a local demonstration. Production identity, authorisation,
-separation of duties, protected evidence ingestion/storage, approved rule configuration,
-enterprise model gateway, monitoring, recovery and external integrations are not present.
-The original [target reference design](../AIRO_Agentic_Case_Coordinator_Reference_Design.md)
-contains possible future ideas; it is not evidence that those capabilities exist.
+Production identity, RBAC/SoD, secure evidence storage, DLP, observability and approved rule
+configuration remain future considerations and are not implemented by this demo.

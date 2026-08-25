@@ -334,7 +334,10 @@ def test_result_verifier_checks_citations_injection_and_rule_changes():
         tool_id=ToolIdentifier.EVIDENCE_EXTRACTOR,
         tool_version=contract.version,
         status="succeeded",
-        output={"facts": [{"claim": "Supported", "line_refs": [1]}]},
+        output={
+            "summary": "Supported evidence.",
+            "facts": [{"claim": "Supported", "line_refs": [1]}],
+        },
         confidence=0.9,
     )
     verification = ResultVerifier().verify(good, contract, state, 0.7)
@@ -398,7 +401,7 @@ def test_end_to_end_records_objective_router_verification_and_trace(coordinator)
     assert all(item["verification"] for item in state["agent_action_trace"])
     assert state["remaining_tool_calls"] >= 0
     assert case["pending_gate"]["decision_authority"] == "AI Risk Oversight (AIRO)"
-    assert case["pending_gate"]["gate_version"] == "airo-gates-1.0"
+    assert case["pending_gate"]["gate_version"] == "airo-governance-loops-2.1"
 
 
 def test_human_answer_update_cannot_change_autonomy_state(coordinator):

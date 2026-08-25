@@ -11,6 +11,7 @@ from app.engines.lod2 import calculate_2lod_triggers
 from app.engines.materiality import calculate_materiality
 from app.llm.base import LLMClient
 from app.schemas import (
+    AuthorityClass,
     AutonomyProfile,
     EvidenceExtraction,
     ToolContract,
@@ -53,7 +54,19 @@ def _contract(
     output_schema: str = "dict",
     approval: bool = False,
     idempotent: bool = True,
+    authority_class: AuthorityClass | None = None,
+    owner: str = "AIRO demonstration control owner",
 ) -> ToolContract:
+    derived_authority = (
+        authority_class
+        or {
+            "read_only": AuthorityClass.READ_ONLY,
+            "advisory": AuthorityClass.ADVISORY_PROCESSING,
+            "verification": AuthorityClass.READ_ONLY,
+            "deterministic": AuthorityClass.PROTECTED_DECISION_SUPPORT,
+            "write": AuthorityClass.CONSEQUENTIAL_EXTERNAL_ACTION,
+        }[permission]
+    )
     return ToolContract(
         tool_id=tool_id,
         version=TOOL_CONTRACT_VERSION,
@@ -68,6 +81,15 @@ def _contract(
         human_approval_required=approval,
         allowed_profiles=ALL_PROFILES,
         implementation_status=status,
+        authority_class=derived_authority,
+        data_permissions=(
+            ["submitted_evidence", "questionnaire"]
+            if input_schema == "EvidenceToolInput"
+            else ["authoritative_case_state"]
+        ),
+        read_only=permission != "write",
+        result_verifier="ResultVerifier.verify",
+        owner=owner,
     )
 
 
@@ -138,6 +160,7 @@ class ToolRegistry:
                 ToolIdentifier.REVIEW_PACK_GENERATOR,
                 "Prepare a reversible local review pack",
                 "read_only",
+                authority_class=AuthorityClass.REVERSIBLE_PREPARATION,
             ),
         ]
         return {item.tool_id: item for item in values}
@@ -218,6 +241,9 @@ class ToolRegistry:
                         case_id=invocation.case_id,
                         tool_id=invocation.tool_id,
                         tool_version=contract.version,
+                        case_state_version=invocation.case_state_version,
+                        rule_version=invocation.rule_version,
+                        state_fingerprint=invocation.state_fingerprint,
                         status="succeeded",
                         output=output,
                         source_references=list(output.get("source_references", [])),
@@ -254,6 +280,9 @@ class ToolRegistry:
             case_id=invocation.case_id,
             tool_id=invocation.tool_id,
             tool_version=invocation.tool_version,
+            case_state_version=invocation.case_state_version,
+            rule_version=invocation.rule_version,
+            state_fingerprint=invocation.state_fingerprint,
             status=status,
             error=error,
             advisory=True,
@@ -316,8 +345,30 @@ class ToolRegistry:
             "Pause or stop controls require confirmation.": ("kill switch", "kill-switch", "pause"),
             "Reversibility and rollback controls require confirmation.": ("rollback", "reversible"),
         }
+        negative_evidence = {
+            "Action limits and permitted tools require confirmation.": (
+                "no action limit",
+                "action limits have not",
+            ),
+            "Human approval before consequential action requires confirmation.": (
+                "no prior human approval",
+                "human approval is not",
+                "human approval has not",
+            ),
+            "Pause or stop controls require confirmation.": (
+                "pause control, kill switch and rollback evidence have not",
+                "no pause control",
+                "no kill switch",
+            ),
+            "Reversibility and rollback controls require confirmation.": (
+                "rollback evidence have not",
+                "no rollback",
+            ),
+        }
         for observation, terms in checks.items():
-            if not any(term in text for term in terms):
+            if not any(term in text for term in terms) or any(
+                term in text for term in negative_evidence.get(observation, ())
+            ):
                 observations.append(observation)
         return {"observations": observations, "confidence": 0.75}
 

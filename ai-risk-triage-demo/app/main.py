@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import PROJECT_ROOT, get_settings
@@ -10,13 +10,15 @@ from app.llm import build_llm_client
 from app.samples import PROFILE_UI_DEFINITIONS, SAMPLE_CATEGORIES, SAMPLES
 from app.schemas import (
     BacktestRequest,
+    ControlRecoveryRequest,
     CreateCaseRequest,
+    ExternalEventSubmission,
     HealthResponse,
     HumanDecision,
     SensitivityRequest,
 )
 from app.services.calibration import DEMO_HISTORY, run_backtest, run_sensitivity
-from app.versions import APP_VERSION
+from app.versions import APP_VERSION, UI_ASSET_VERSION
 
 settings = get_settings()
 llm_client = build_llm_client(settings)
@@ -35,9 +37,24 @@ STATIC_DIR = PROJECT_ROOT / "app" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.middleware("http")
+async def prevent_stale_demo_assets(request: Request, call_next):
+    """Keep the local demo's HTML, CSS and JavaScript on the same UI release."""
+
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 @app.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+def index() -> HTMLResponse:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    return HTMLResponse(
+        html.replace("__UI_ASSET_VERSION__", UI_ASSET_VERSION),
+        headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"},
+    )
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -68,6 +85,8 @@ def list_samples() -> dict:
             "short_description": sample.short_description,
             "category": sample.category,
             "category_name": SAMPLE_CATEGORIES[sample.category],
+            "featured_case_number": sample.featured_case_number,
+            "featured_case_name": sample.featured_case_name,
             "learning_objectives": sample.learning_objectives,
             "expected_assigned_profile": sample.expected_assigned_profile,
             "expected_approved_maximum_profile": sample.expected_approved_maximum_profile,
@@ -77,9 +96,17 @@ def list_samples() -> dict:
             "expected_tools": [item.value for item in sample.expected_tools],
             "expected_verification_statuses": sample.expected_verification_statuses,
             "expected_gates": sample.expected_gates,
+            "expected_governance_loops": sample.expected_governance_loops,
+            "expected_external_event_type": sample.expected_external_event_type,
+            "expected_exceptions": sample.expected_exceptions,
+            "expected_path": sample.expected_path,
             "expected_materiality_band": sample.expected_materiality_band,
             "expected_2lod_teams": sample.expected_2lod_teams,
             "expected_final_status": sample.expected_final_status,
+            "teaching_controls": sample.demo_controls.model_dump(mode="json"),
+            "teaching_controls_notice": (
+                "Protected fixture controls only; they do not override the policy-assigned profile."
+            ),
             "interactive_steps": sample.interactive_steps,
         }
         for name, sample in SAMPLES.items()
@@ -128,6 +155,55 @@ def resume_case(case_id: str, decision: HumanDecision) -> dict:
         raise HTTPException(status_code=404, detail="Case not found") from None
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/cases/{case_id}/events")
+def submit_external_event(case_id: str, event: ExternalEventSubmission) -> dict:
+    try:
+        return coordinator.submit_external_event(case_id, event)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Case not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/cases/{case_id}/recover")
+def recover_control_exception(case_id: str, recovery: ControlRecoveryRequest) -> dict:
+    try:
+        return coordinator.recover_control_exception(case_id, recovery)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Case not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/cases/{case_id}/history")
+def get_action_history(case_id: str) -> dict:
+    try:
+        return coordinator.action_history(case_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Case not found") from None
+
+
+@app.get("/api/cases/{case_id}/supervisor")
+def get_supervisor_decision(case_id: str) -> dict:
+    try:
+        return coordinator.supervisor_decision(case_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Case not found") from None
+
+
+@app.get("/api/cases/{case_id}/results")
+def get_result_status(case_id: str) -> dict:
+    try:
+        return coordinator.result_status(case_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Case not found") from None
+
+
+@app.get("/api/tools")
+def get_tool_registry() -> list[dict]:
+    return coordinator.tool_metadata()
 
 
 @app.post("/api/calibration/backtest")

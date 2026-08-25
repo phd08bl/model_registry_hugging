@@ -27,7 +27,7 @@ def test_exception_based_can_skip_non_sampled_low_risk_gate():
     evaluation = engine.evaluate("exception_resolution", state)
 
     assert evaluation.required is False
-    assert evaluation.mode == "EXCEPTION_REVIEW"
+    assert evaluation.mode == "NOT_TRIGGERED"
 
 
 def test_exception_forces_review():
@@ -49,19 +49,14 @@ def test_evidence_request_is_mandatory_for_every_profile():
         assert engine.evaluate("evidence_request", _eligible_state(profile)).required is True
 
 
-def test_human_governed_requires_every_decision_gate():
+def test_human_governed_skips_an_exception_loop_when_no_exception_exists():
     engine = AutonomyPolicyEngine()
     state = _eligible_state("human_governed")
 
-    assert all(
-        engine.evaluate(gate_id, state).required
-        for gate_id in (
-            "input_confirmation",
-            "exception_resolution",
-            "final_triage",
-            "publication",
-        )
-    )
+    assert engine.evaluate("input_confirmation", state).required
+    assert not engine.evaluate("exception_resolution", state).required
+    assert engine.evaluate("final_triage", state).required
+    assert engine.evaluate("publication", state).required
 
 
 def test_conditional_review_skips_clean_preparation_but_requires_final_and_publication():

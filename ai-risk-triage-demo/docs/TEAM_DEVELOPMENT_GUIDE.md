@@ -26,8 +26,9 @@ Use this only for a capability the Coordinator actually invokes.
 1. Add a narrow `ToolIdentifier` in `app/schemas.py`.
 2. Add or reuse a Pydantic input/output model in `app/agent/tools.py`; forbid unexpected
    fields where the boundary requires it.
-3. Add a `ToolContract` with purpose, version, permission, risk, timeout, retries,
-   idempotency, profiles and implementation status.
+3. Add a `ToolContract` with purpose/version, authority class, schemas, data permissions,
+   read-only/external boundary, timeout/retries, idempotency, result verifier, owner,
+   profiles and implementation status.
 4. Register one handler in `ToolRegistry._handlers`.
 5. If the LLM router may select it, also follow **Add a router action** below.
 6. Add deterministic verifier checks and explicit semantic limitations.
@@ -46,8 +47,9 @@ future considerations until an active, governed call path exists.
 3. Define its trusted input keys in `ACTION_INPUTS`; never execute model-authored payloads.
 4. Add deterministic readiness/prerequisite logic to `plan_evidence_actions()` and/or
    `PolicySupervisor._planned_actions()`.
-5. Ensure the policy provides both the action and tool allowlists and the router binds the
-   approved contract before validation.
+5. Ensure the policy provides both allowlists and the immediate `ActionAuthoriser` validates
+   action/tool match, inputs, data permission, versions, budgets, confidence, profile and
+   authority before execution.
 6. Define how successful, advisory, rejected and failed results update Case state.
 7. Include budget and loop termination behavior.
 8. Test deterministic single-action selection, multi-action LLM selection, mismatched tool,
@@ -91,15 +93,47 @@ or thresholds automatically.
 1. Define the reserved human decision and accountable authority.
 2. Add a deterministic Gate requirement in the autonomy policy; unknown profiles must still
    require review.
-3. Build the payload through `AIROInterruptController`, including evidence, rule rationale,
-   actions, effects and rationale requirements.
+3. Build the payload through `AIROInterruptController`, including typed `required_inputs`,
+   evidence/citations, rule rationale, allowed decisions, `action_impacts`, required fields,
+   selective reruns and rationale requirements. Every Gate must tell a reviewer exactly what
+   is blocked and what a valid response requires.
 4. Add the `interrupt()` node and explicit `Command` transitions in `app/graph.py`.
 5. Keep all side effects outside the interrupting node because it restarts on resume.
 6. Add status/current-Gate mapping in `CaseCoordinator._save_snapshot()`.
-7. Update the UI action-specific fields and help text without exposing irrelevant inputs.
-8. Test valid/invalid actions, required rationale, restart/resume, cancel/return loops,
+7. Update the UI guided inputs and impact preview without exposing irrelevant fields; retain
+   structured JSON only as an advanced fallback when a simpler control is possible.
+8. Test every required-input kind and decision-impact contract plus valid/invalid actions,
+   required rationale, empty required submissions, restart/resume, cancel/return loops,
    profile requirements and fail-closed behavior.
 9. Update both Mermaid diagrams and every sample affected by the Gate.
+
+Prefer a named Governance Loop with a precise triggering condition. Do not add a fixed human
+stop merely to preserve numbering; a clean routine Case must not pause at an empty exception
+review.
+
+## Add an external event
+
+1. Define event type, expected source, schema version, due time, timeout action and Case State
+   version in `ExternalEventExpectation`.
+2. Create the expectation deterministically and route to the event-wait node; a machine wait
+   is not a Human Gate.
+3. Validate event-ID replay, Case ID, correlation, source, type, schema, Case State version
+   and any artifact hash at the Coordinator boundary.
+4. Treat the artifact as untrusted evidence, append rather than overwrite it, and invoke
+   dependency-aware invalidation and selective rework.
+5. Make timeout create a structured Control Exception.
+6. Test valid resume, each mismatch, duplicate replay, timeout and restart.
+
+## Change readiness, recovery or completion
+
+- Keep readiness and completion as pure deterministic functions with explicit criteria.
+- Never run materiality/2LoD on unconfirmed or stale required inputs.
+- Create a structured `ControlException` when no safe transition exists; an execution failure
+  is not a risk rejection.
+- Expose only recovery actions supported by remaining budgets.
+- Completion requires closed objectives/actions, no blockers/open Control Exception, current
+  risk proposals/review pack, a final decision and reconciled local publication.
+- Add regression tests for each new blocker and recovery transition.
 
 ## Update Case state
 
@@ -150,11 +184,15 @@ Do not choose or add a software licence without the organisation's legal decisio
 1. Choose one learning objective not already demonstrated adequately.
 2. Use synthetic, non-sensitive questionnaire/evidence text.
 3. Add a governed pattern entry and typed `DemonstrationCase` with matching ID.
-4. State the starting condition, assigned/maximum profile, expected actions/tools,
-   verification, Gates, materiality/2LoD proposals and user steps.
-5. Confirm expected metadata cannot force graph behavior.
-6. Add it to parameterized policy, risk and full mock-journey tests.
-7. Update both sample documents and the UI count if stated.
+4. State what the sample demonstrates, its expected path, dynamic actions, tools,
+   verification, exceptions, Governance Loops, final result and exact user steps.
+5. Record both the policy-assigned effective profile and approved maximum. Label any protected
+   teaching control explicitly; it must not act as a profile override.
+6. Use a unique `featured_case_number`/`featured_case_name` only when the sample belongs to
+   the required eight-Case feature set.
+7. Confirm expected metadata cannot force graph behavior.
+8. Add it to parameterized policy, risk and full mock-journey tests.
+9. Update `SAMPLE_COVERAGE.md`, `DEMO_SCRIPT.md`, README counts and UI contract tests.
 
 ## Add tests
 

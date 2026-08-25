@@ -111,13 +111,17 @@ class CaseRepository:
             row = connection.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,)).fetchone()
         if not row:
             return None
+        state = self._load(row["state_json"], {})
         return {
             "case_id": row["case_id"],
             "title": row["title"],
             "status": row["status"],
             "autonomy_profile": row["autonomy_profile"],
-            "state": self._load(row["state_json"], {}),
+            "state": state,
             "pending_gate": self._load(row["pending_gate_json"], None),
+            "pending_event": state.get("active_external_event"),
+            "lifecycle_status": state.get("lifecycle_status"),
+            "domain_phase": state.get("domain_phase"),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
@@ -126,24 +130,30 @@ class CaseRepository:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT case_id, title, status, autonomy_profile, pending_gate_json,
+                SELECT case_id, title, status, autonomy_profile, state_json, pending_gate_json,
                        created_at, updated_at
                   FROM cases
                  ORDER BY updated_at DESC
                 """
             ).fetchall()
-        return [
-            {
-                "case_id": row["case_id"],
-                "title": row["title"],
-                "status": row["status"],
-                "autonomy_profile": row["autonomy_profile"],
-                "pending_gate": self._load(row["pending_gate_json"], None),
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-            }
-            for row in rows
-        ]
+        results = []
+        for row in rows:
+            state = self._load(row["state_json"], {})
+            results.append(
+                {
+                    "case_id": row["case_id"],
+                    "title": row["title"],
+                    "status": row["status"],
+                    "autonomy_profile": row["autonomy_profile"],
+                    "pending_gate": self._load(row["pending_gate_json"], None),
+                    "pending_event": state.get("active_external_event"),
+                    "lifecycle_status": state.get("lifecycle_status"),
+                    "domain_phase": state.get("domain_phase"),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                }
+            )
+        return results
 
     def add_audit(
         self,

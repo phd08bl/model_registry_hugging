@@ -9,7 +9,8 @@ the built-in runtimes, and how to add another API without changing the governed 
 
 The provider layer is intentionally narrow. Changing a model transport must not change the
 model's authority: LLM output remains typed, bounded and advisory, while materiality, 2LoD
-routing, autonomy, Human Gates, approval and publication remain deterministic or human-owned.
+routing permissions, immediate action authorization, autonomy, Governance Loops, approval
+and publication remain deterministic or human-owned.
 
 ## 1. Implemented architecture
 
@@ -68,7 +69,8 @@ registry accepts:
 | `openai_compatible` | `OpenAILLMClient` with custom base URL | API key, model and `OPENAI_BASE_URL` |
 
 These modes change transport, not authority. None may set materiality, 2LoD, autonomy,
-Gates, final approval or publication permission.
+Governance Loops, final approval or publication permission. A provider response is only a
+proposal; `ActionAuthoriser` still performs the immediate pre-tool permission check.
 
 An unknown value fails during startup. It never silently falls back to Ollama or another
 provider. This is important because silent provider substitution could send evidence to an

@@ -1,5 +1,10 @@
 # Agent-design implementation review
 
+> **Historical record:** this document describes the earlier bounded-router refactor and is
+> retained as change evidence. It is not the current architecture specification. See
+> [ARCHITECTURE.md](ARCHITECTURE.md) and [CURRENT_AGENT_DESIGN_REVIEW.md](CURRENT_AGENT_DESIGN_REVIEW.md)
+> for the pre-upgrade gap review and current authoritative design.
+
 **Historical record:** this document captures the earlier agent-design refactor review on
 23 August 2026. Its untouched baseline of **36 tests passed in 2.22 seconds** is not the
 current release result. See [RELEASE_READINESS_REPORT.md](RELEASE_READINESS_REPORT.md) for

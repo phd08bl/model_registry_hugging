@@ -77,6 +77,14 @@ class AutonomyPolicyEngine:
                 ),
             )
 
+        if gate_id == "exception_resolution" and not exceptions and not elevated:
+            return GateEvaluation(
+                gate_id,
+                False,
+                "NOT_TRIGGERED",
+                "No current gap, conflict, confirmed exception or rule-supported interpretation point exists.",
+            )
+
         if profile == "human_governed":
             return GateEvaluation(
                 gate_id,

@@ -35,8 +35,8 @@ def test_pending_case_can_resume_after_coordinator_restart(tmp_path):
                 reviewer="AIRO restart test",
             ),
         )
-        assert resumed["pending_gate"]["gate_id"] == "exception_resolution"
-        assert resumed["status"] == "AWAITING_EXCEPTION_DECISION"
+        assert resumed["pending_gate"]["gate_id"] == "final_triage"
+        assert resumed["status"] == "AWAITING_FINAL_DECISION"
         assert resumed["state"]["human_decisions"][-1]["reviewer"] == "AIRO restart test"
         assert resumed["state"]["confirmed_facts"]
     finally:

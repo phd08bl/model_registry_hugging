@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AIRO Agentic Risk Triage Demo</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=__UI_ASSET_VERSION__" />
 </head>
 <body>
   <header class="topbar">
@@ -43,6 +43,22 @@
 
       <section class="new-case-panel">
         <h3>Create a demonstration case</h3>
+        <p class="catalog-intro">Choose a governed teaching scenario. Creating a Case does not start the Coordinator.</p>
+        <div class="sample-catalog-controls">
+          <label for="sample-search">Find a demonstration
+            <input id="sample-search" type="search" autocomplete="off" placeholder="Search feature, tool or scenario" />
+          </label>
+          <label for="sample-profile-filter">Automation profile
+            <select id="sample-profile-filter">
+              <option value="all">All profiles</option>
+              <option value="human_governed">Human Governed</option>
+              <option value="conditional_review">Conditional Review</option>
+              <option value="exception_based">Exception Based</option>
+              <option value="straight_through_demo">Straight-Through Demo</option>
+            </select>
+          </label>
+          <small id="sample-count" class="sample-count" role="status" aria-live="polite">Loading demonstrations…</small>
+        </div>
         <div id="sample-buttons" class="sample-buttons"></div>
         <details>
           <summary>Create custom case</summary>
@@ -95,14 +111,30 @@
           <div id="case-automation-context" class="automation-context"></div>
         </section>
 
-        <section class="workflow-card card">
-          <div class="section-title"><div><p class="eyebrow">StateGraph</p><h3>Case progress</h3></div><span class="microcopy">State-driven, not tab-driven</span></div>
-          <div id="workflow-steps" class="workflow-steps"></div>
+        <section class="journey-card card" aria-labelledby="case-journey-title">
+          <div class="section-title">
+            <div><p class="eyebrow">Authoritative Case State</p><h3 id="case-journey-title">Case journey</h3></div>
+            <span class="microcopy">Read-only progress view; tabs do not control the workflow</span>
+          </div>
+          <div id="current-control-state" class="current-control-state" role="status" aria-live="polite"></div>
+          <div id="workflow-steps" class="journey-steps" role="list" aria-label="Risk triage journey"></div>
+          <details class="journey-legend">
+            <summary>How to read this journey</summary>
+            <p>Phases show domain progress. Governance Gates, external events and Control Exceptions are control conditions, not extra workflow controllers. A stale phase preserves history but is not authoritative until its replacement is complete.</p>
+            <div class="journey-legend-items" aria-label="Journey status legend">
+              <span><i class="legend-current"></i>Current</span>
+              <span><i class="legend-complete"></i>Completed</span>
+              <span><i class="legend-waiting"></i>Waiting</span>
+              <span><i class="legend-skipped"></i>Skipped / not required</span>
+              <span><i class="legend-stale"></i>Stale / reopened</span>
+              <span><i class="legend-exception"></i>Control Exception</span>
+            </div>
+          </details>
         </section>
 
         <div class="content-grid">
           <section class="card coordinator-panel">
-            <div class="section-title"><div><p class="eyebrow">Agentic coordination</p><h3>Coordinator view</h3></div></div>
+            <div class="section-title"><div><p class="eyebrow">Agentic coordination</p><h3>Coordinator Workspace</h3></div></div>
             <div id="coordinator-summary"></div>
           </section>
 
@@ -112,39 +144,79 @@
             <p id="gate-summary"></p>
             <p id="gate-reason" class="muted"></p>
             <div id="gate-context" class="context-box"></div>
-            <form id="decision-form" class="decision-form">
-              <label>AIRO action<select id="decision-action" required></select></label>
+            <form id="decision-form" class="decision-form" aria-labelledby="decision-form-title">
+              <div class="decision-form-heading">
+                <h4 id="decision-form-title">Record the AIRO decision</h4>
+                <span>Only fields relevant to the selected decision are shown.</span>
+              </div>
+              <fieldset class="decision-choice-group">
+                <legend>Choose a decision</legend>
+                <div id="decision-options" class="decision-options"></div>
+                <select id="decision-action" class="visually-hidden" tabindex="-1" aria-hidden="true" required></select>
+              </fieldset>
               <p id="gate-action-help" class="warning"></p>
-              <label>Decision rationale<textarea id="decision-rationale" rows="3" placeholder="Explain the review and decision"></textarea></label>
-              <label id="additional-evidence-row" class="optional-field">Additional evidence<textarea id="additional-evidence" rows="5" placeholder="Paste evidence received through normal channels"></textarea></label>
-              <label id="answer-updates-row" class="optional-field">Questionnaire updates (JSON)<textarea id="answer-updates" rows="3" placeholder='{"personal_data": true}'></textarea></label>
+              <label>Decision rationale<textarea id="decision-rationale" rows="2" placeholder="Explain the review and decision"></textarea></label>
+              <label id="additional-evidence-row" class="optional-field">Additional evidence<textarea id="additional-evidence" rows="4" placeholder="Paste evidence received through normal channels"></textarea><small class="field-help">Use evidence obtained through approved channels; do not paste secrets or production personal data into this demonstration.</small></label>
+              <div id="guided-answer-row" class="optional-field">
+                <strong>Questionnaire corrections</strong>
+                <p class="field-help">Choose only facts AIRO is correcting. “No change” preserves the submitted answer.</p>
+                <div id="guided-answer-controls" class="guided-answer-controls"></div>
+              </div>
+              <details id="answer-updates-row" class="optional-field advanced-update">
+                <summary>Advanced: questionnaire updates as JSON</summary>
+                <label>JSON update<textarea id="answer-updates" rows="2" placeholder='{"personal_data": true}' spellcheck="false"></textarea><small class="field-help">Enter only fields AIRO is amending. Guided corrections above update this JSON automatically.</small></label>
+              </details>
               <label id="override-band-row" class="optional-field">Override materiality
                 <select id="override-band"><option value="">No override</option><option>negligible</option><option>minor</option><option>moderate</option><option>material</option><option>severe</option></select>
               </label>
               <label id="confirmed-teams-row" class="optional-field">Confirmed 2LoD teams (comma-separated)<input id="confirmed-teams" placeholder="Data & Privacy, Technology / Cyber" /></label>
-              <label>Reviewer<input id="reviewer" value="AIRO demo reviewer" /></label>
-              <button type="submit" class="primary amber-btn">Submit decision and resume</button>
+              <div id="decision-form-error" class="form-error hidden" role="alert"></div>
+              <details id="decision-impact-preview" class="decision-impact-preview" aria-live="polite"></details>
+              <div class="decision-submit-row">
+                <label>Reviewer<input id="reviewer" value="AIRO demo reviewer" required /></label>
+                <button type="submit" class="primary amber-btn">Submit decision and resume</button>
+              </div>
+            </form>
+            <div id="gate-support"></div>
+          </section>
+
+          <section id="event-panel" class="card event-panel hidden">
+            <p class="eyebrow">External Event Wait</p>
+            <h3>Submit correlated stakeholder evidence</h3>
+            <p>The Coordinator is durably paused. The event must match the displayed Case, correlation, source, schema and Case State version.</p>
+            <div id="event-contract" class="context-box"></div>
+            <form id="event-form" class="decision-form">
+              <label>Event source<input id="event-source" value="business_owner" required /></label>
+              <label>Evidence artifact<textarea id="event-artifact" rows="5">Supplier due diligence, contract, assurance and model-change responsibilities are approved.</textarea></label>
+              <div class="event-actions">
+                <button type="submit" class="primary">Simulate stakeholder evidence received</button>
+                <button id="external-response-btn" type="button" class="secondary">Simulate external response received</button>
+                <button id="invalid-event-btn" type="button" class="secondary">Try invalid correlation</button>
+                <button id="timeout-event-btn" type="button" class="secondary">Simulate timeout</button>
+                <button id="duplicate-event-btn" type="button" class="secondary" disabled>Replay last event</button>
+              </div>
             </form>
           </section>
         </div>
 
         <section class="tabs card">
-          <div class="tab-buttons">
-            <button class="tab active" data-tab="overview">Overview</button>
-            <button class="tab" data-tab="evidence">Inputs & Evidence</button>
-            <button class="tab" data-tab="assessment">Assessment</button>
-            <button class="tab" data-tab="lod2">2LoD Engagement</button>
-            <button class="tab" data-tab="pack">Review Pack</button>
-            <button class="tab" data-tab="calibration">Calibration</button>
-            <button class="tab" data-tab="history">History</button>
+          <div class="tab-buttons" role="tablist" aria-label="Case views">
+            <button class="tab active" role="tab" aria-selected="true" aria-controls="tab-content" data-tab="overview">Questionnaire</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="evidence">Evidence</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="assessment">Assessment</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="lod2">Second-Line Engagement</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="pack">Review Pack</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="calibration">Calibration</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="history">Decision and Action History</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tab-content" data-tab="trace">Technical Trace</button>
           </div>
-          <div id="tab-content" class="tab-content"></div>
+          <div id="tab-content" class="tab-content" role="tabpanel"></div>
         </section>
       </div>
     </section>
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=__UI_ASSET_VERSION__"></script>
 </body>
 </html>
