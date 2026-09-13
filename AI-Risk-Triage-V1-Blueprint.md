@@ -12,15 +12,34 @@ This blueprint describes the quickest operational version of the AI Risk Triage 
 
 ```mermaid
 flowchart TD
-    A["Model Owner completes Power Apps intake<br/>Questions loaded from the active template;<br/>answers, rationale, details and evidence"] --> B["Power Automate validates submission<br/>Mandatory fields, rationale and evidence"]
-    B -->|Incomplete| C["Return specific questions<br/>to Model Owner"]
+    A["Model Owner completes intake<br/>Focused Power App loads the active question template<br/>Capture answers, rationale, use-case details and evidence"]
+
+    A --> B["Power Automate validates the submission<br/>Check required answers, rationale and evidence<br/>Assign the input and configuration versions"]
+
+    B -->|Incomplete| C["Power Automate initiates follow-up<br/>Return only the relevant questions<br/>Send notification and record the request"]
+
     C --> A
-    B -->|Complete| D["Apply approved rule-set version<br/>Scores, rating bands, deal-breakers<br/>and proposed 2LoD triagers"]
-    D --> E["Create transparent triage proposal<br/>Answers, rationale, evidence,<br/>score breakdown and reason codes"]
-    E --> F{"AI Risk Oversight review"}
-    F -->|More information| C
-    F -->|Confirm or authorised override| G["Create final triage result<br/>Preserve proposal and decision separately"]
-    G --> H["Power Automate approved actions<br/>Notifications, field updates,<br/>2LoD tasks and final pack"]
+
+    B -->|Complete| D["Power Automate applies approved deterministic rules<br/>Calculate score and rating<br/>Identify deal-breakers and proposed 2LoD triagers"]
+
+    D --> E["Store the transparent triage proposal in SharePoint<br/>Retain answers, evidence and version references<br/>Record score breakdown, matched rules and reason codes"]
+
+    E --> F{"AIRO review and decision<br/>Standard SharePoint view or focused Power App if required"}
+
+    F -->|Request more information| I["Power Automate records and executes the request<br/>Update Case status, send the email or notification<br/>Create the required follow-up action"]
+
+    I --> A
+
+    F -->|Escalate| J["Power Automate records and executes the escalation<br/>Update Case status, notify the authorised party<br/>Create an escalation task and audit event"]
+
+    J --> K["Wait for the authorised response or decision"]
+    K --> F
+
+    F -->|Confirm or authorised override| G["Power Automate records the confirmed decision<br/>Capture approver, timestamp and override rationale<br/>Keep the system proposal separate from the AIRO decision"]
+
+    G --> H["Power Automate executes approved actions<br/>Update Case fields and status<br/>Send notifications, create 2LoD tasks and generate the final pack"]
+
+    H --> L["Store the final triage result in SharePoint<br/>Retain the complete versioned audit trail"]
 ```
 
 ## 2. Technical design
@@ -28,41 +47,89 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph UX["User experience — Power Apps only where required"]
-        U1["Power Apps Model Owner intake<br/>Loads the active configurable<br/>question template"]
-        U2["SharePoint views and standard form<br/>for AIRO review"]
-        U3["Optional AIRO review Power App<br/>only if standard SharePoint<br/>is insufficient"]
+        U1["Model Owner intake Power App<br/>Loads the active question template<br/>Captures answers, rationale, details and evidence"]
+
+        U2["AIRO SharePoint review view<br/>Reviews evidence, proposal and reason codes<br/>Selects the controlled outcome"]
+
+        U3["Optional AIRO review Power App<br/>Used only if SharePoint does not provide<br/>a sufficient review experience"]
     end
 
-    subgraph PA["Power Automate"]
-        P1["Submission validation and Case lifecycle"]
-        P2["Deterministic rule interpreter"]
-        P3["Approved actions and notifications"]
-    end
+    subgraph CFG["Controlled, versioned configuration in SharePoint"]
+        C1["Question templates and response options<br/>Rationale and evidence requirements"]
 
-    subgraph SP["SharePoint data and evidence"]
-        S1["Case, answers, rationale<br/>and evidence metadata"]
-        S2["Triage proposal and matched rules"]
-        S3["AIRO decision, final result<br/>and audit events"]
-    end
-
-    subgraph CFG["Controlled versioned configuration"]
-        C1["Question template, response options,<br/>rationale and evidence requirements"]
         C2["Scores, weights and rating bands"]
-        C3["Deal-breakers and 2LoD rules"]
+
+        C3["Deal-breakers and 2LoD routing rules"]
+
+        C4["Decision authorities and action mappings<br/>Notification and document templates"]
     end
 
+    subgraph PA["Power Automate processing"]
+        P1["Validate submission and assign versions<br/>Check required fields and evidence references<br/>Pin input and configuration versions"]
+
+        P2["Apply approved deterministic rules<br/>Calculate score and rating<br/>Identify deal-breakers and proposed 2LoD triagers"]
+
+        P3["Validate and process the AIRO decision<br/>Check authority and required rationale<br/>Create the approved action instructions"]
+
+        P4["Execute approved actions<br/>Apply duplicate prevention and retry controls<br/>Record execution status"]
+    end
+
+    subgraph SP["SharePoint Case data, evidence and audit records"]
+        S1["Live Case and input records<br/>Answers, rationale and evidence metadata<br/>Input and configuration versions"]
+
+        S2["System-generated triage proposal<br/>Score breakdown, matched rules<br/>Reason codes and proposed 2LoD triagers"]
+
+        S3["AIRO decision and final result<br/>Confirmation or authorised override<br/>Approver, rationale and timestamp"]
+
+        S4["Action outbox and delivery status<br/>Action type, recipient and Case reference<br/>Pending, completed or failed status"]
+
+        S5["Append-only audit events<br/>Case changes, calculations, decisions<br/>actions, retries and outcomes"]
+    end
+
+    subgraph OUT["Automated outputs and follow-up"]
+        O1["Model Owner emails and information requests"]
+
+        O2["2LoD notifications, referrals and tasks"]
+
+        O3["Case status updates and final triage pack"]
+    end
+
+    C1 --> U1
     U1 --> P1
+    C1 --> P1
+
     P1 --> S1
     S1 --> P2
-    C1 --> P1
     C2 --> P2
     C3 --> P2
+
     P2 --> S2
+    P2 --> S5
+
+    S1 --> U2
     S2 --> U2
+
+    U2 -. "Optional enhanced interface" .-> U3
     U2 --> S3
+    U3 --> S3
+
+    C4 --> P3
     S3 --> P3
-    C1 --> U1
-    U3 -.-> U2
+    P3 --> S4
+    P3 --> S5
+
+    S4 --> P4
+    C4 --> P4
+
+    P4 --> O1
+    P4 --> O2
+    P4 --> O3
+
+    P4 --> S1
+    P4 --> S4
+    P4 --> S5
+
+    O1 -. "New or updated submission" .-> U1
 ```
 
 ## 3. What is configurable in Version 1
