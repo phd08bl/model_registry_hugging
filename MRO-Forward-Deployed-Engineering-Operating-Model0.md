@@ -3,7 +3,7 @@
 ## A workflow-first approach to automation, technology and tooling
 
 **Purpose:** Define a reusable operating model for MRO automation, technology and tooling  
-**Scope:** Wider Model Risk Office automation and tooling, including AI-enabled solutions  
+**Scope:**  Model Risk Office automation and tooling, including AI-enabled solutions  
 **Accountable function:** MRO Technology & Tooling workstream  
 **Status:** Proposed operating model
 
@@ -11,18 +11,16 @@
 
 ## 1. Executive summary
 
-MRO should begin its technology and tooling strategy with the activities, workflows and outcomes that need improvement. It should not begin by defining a catalogue of tools or maximising automation as an objective in itself.
-
-This operating model adapts **Forward Deployed Engineering (FDE)** to the MRO environment. A small technical team works closely with the accountable process owner, subject-matter experts and users inside the real workflow. Together they establish how the process currently operates, what problem needs solving, which decisions and controls must remain with people, and how success will be measured. They then test the simplest suitable intervention before MRO commits to a production build.
+This operating model adapts **Forward Deployed Engineering (FDE)** to the MRO environment. Technical team works closely with the accountable process owner, subject-matter experts and users inside the real workflow. Together they establish how the process currently operates, what problem needs solving, which decisions and controls must remain with people, and how success will be measured. They then test the simplest suitable intervention before MRO commits to a production build.
 
 The answer may be process simplification, standardisation, reuse of an existing enterprise platform, low-code workflow, deterministic software, analytics, an AI assistant or a governed agent. FDE therefore provides a disciplined route from a business priority to an evidence-based delivery decision.
 
 This model supports two distinct responsibilities for AI Tech & Tooling:
 
-1. **Direct engineering responsibility:** develop and support specialist AI-validation and AI-risk-oversight tools, reusable technical components and agents.
-2. **Wider MRO enablement responsibility:** lead discovery, provide technical direction, build bounded demonstrations, supply reusable patterns and guidance, develop MRO colleagues, and identify the squad or platform best placed to deliver and operate the solution.
+1. **Direct engineering responsibility:** develop and support specialist AI-validationtools, reusable technical components and agents.
+2. **MRO enablement responsibility:** lead discovery, provide technical direction, build bounded demonstrations, supply reusable patterns and guidance, develop MRO colleagues, and identify the squad best placed to deliver and operate the solution.
 
-AI Tech & Tooling is not intended to become a central software factory that accepts and maintains every MRO tooling request. Its finite specialist capacity must remain available for the core AI-validation mandate. A scalable MRO model therefore depends on accountable business ownership, disciplined prioritisation, reusable components and delivery through the right combination of MRO colleagues, enterprise platforms and specialist engineering teams.
+A scalable MRO model therefore depends on accountable business ownership, disciplined prioritisation, reusable components and delivery through the right combination of MRO colleagues, and specialist engineering teams.
 
 The operating model converts prioritised MRO workflows into evidence-based delivery decisions. Portfolio governance selects and sequences discovery work. The MRO Technology & Tooling workstream then develops the roadmap, delivery routes and resource implications from the evidence produced through discovery and demonstration.
 
@@ -46,11 +44,11 @@ The primary portfolio output is a **prioritised discovery backlog**. It is disti
 
 ---
 
-## 3. Why MRO should start with workflows and use cases
+## 3. Start with workflows and use cases
 
-### 3.1 A capability list is a hypothesis, not a roadmap
+### 3.1 Turn capability into a roadmap
 
-Capabilities such as evidence retrieval, document assurance, testing, monitoring, reporting and resource planning are useful ways of organising ideas. However, they do not by themselves establish:
+Capabilities will need to be used to establish:
 
 - which MRO outcome needs to improve;
 - who experiences the problem;
@@ -61,7 +59,6 @@ Capabilities such as evidence retrieval, document assurance, testing, monitoring
 - whether AI is necessary or proportionate;
 - who should build, host, support and maintain the solution.
 
-A capability roadmap created before answering these questions risks producing generic technology without clear adoption, accountability or measurable value.
 
 ### 3.2 Workflow discovery reveals the real requirement
 
@@ -73,7 +70,7 @@ A workflow or use-case request normally originates from colleagues who perform o
 
 ### 3.4 Reusable capabilities should emerge from repeated needs
 
-FDE does not reject capability thinking. It reverses the sequence:
+FDE reverses the sequence:
 
 1. Understand several real workflows and use cases.
 2. Identify common problems and technical patterns.
@@ -173,7 +170,7 @@ AI Tech & Tooling directly develops and supports capabilities that sit within it
 
 The relevant AI Independent Validation or AI Risk Oversight team retains ownership of methodology, validation scope, test selection and configuration, interpretation, conclusions and protected decisions.
 
-### 6.2 Lane B: wider MRO enablement and routing
+### 6.2 Lane B: MRO enablement and routing
 
 For wider MRO automation and tooling, AI Tech & Tooling provides:
 
@@ -188,19 +185,6 @@ For wider MRO automation and tooling, AI Tech & Tooling provides:
 - identification and mobilisation of an appropriate delivery squad;
 - advice on AI classification, governance and controls;
 - independent challenge of proposed technology choices where required.
-
-AI Tech & Tooling should not become the default long-term developer, product owner or support team for every wider MRO tool.
-
-### 6.3 Capacity protection
-
-AI Tech & Tooling supports both direct AI-validation delivery and wider MRO enablement. Portfolio management must therefore:
-
-- protect capacity for agreed AI-validation and AI-risk-oversight commitments;
-- limit concurrent FDE engagements;
-- time-box demonstrations and discovery;
-- make trade-offs visible through portfolio governance;
-- avoid converting every approved priority into an AI Tech & Tooling build commitment;
-- mobilise wider MRO and enterprise delivery resources where appropriate.
 
 ---
 
@@ -458,7 +442,7 @@ Prioritisation selects work for discovery. It does not predetermine the solution
 |---|---|---|
 | Policy or role ambiguity | Clarify policy, responsibility or guidance | MRO process owner with Policy or Governance colleagues |
 | Process complexity or variation | Simplify and standardise | MRO process owner supported by FDE |
-| General workflow and case management | Configure an approved workflow platform | MARM, Power Platform or another enterprise delivery team |
+| General workflow and case management | Configure an approved workflow platform | MARM, Power Platform  |
 | Reporting and management information | Use governed data and reporting services | Relevant data, MI or reporting team |
 | Deterministic analytical tool | Develop controlled rules, calculations or tests | Appropriate analytical or development squad |
 | Specialist AI-validation capability | Develop within the AI validation architecture | AI Tech & Tooling with AI IVT or AIRO ownership |
